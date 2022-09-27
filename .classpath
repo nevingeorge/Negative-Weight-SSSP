@@ -1,10 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
+	<classpathentry kind="src" path="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-16">
 		<attributes>
 			<attribute name="module" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="lib" path="/Users/nevingeorge/eclipse-workspace/CPSC 490 Senior Project/commons-rng-sampling-1.4.jar"/>
+	<classpathentry kind="lib" path="/Users/nevingeorge/eclipse-workspace/CPSC 490 Senior Project/commons-rng-client-api-1.4.jar"/>
+	<classpathentry kind="lib" path="/Users/nevingeorge/eclipse-workspace/CPSC 490 Senior Project/commons-rng-simple-1.4.jar"/>
+	<classpathentry kind="lib" path="/Users/nevingeorge/eclipse-workspace/CPSC 490 Senior Project/commons-rng-core-1.4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

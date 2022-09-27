@@ -54,6 +54,10 @@ public class Graph {
 		return weights[v1][v2];
 	}
 	
+	public ArrayList<Integer>[] getAdjacencyList() {
+		return adjacencyList;
+	}
+	
 	public ArrayList<Integer> getEdges(int v) {
 		return adjacencyList[v];
 	}
