@@ -12,9 +12,9 @@ import org.apache.commons.rng.simple.RandomSource;
 public class LowDiameterDecomposition {
 
 	public static void main(String[] args) throws Exception {
-		Graph g = new Graph(2, true);
+		Graph g = new Graph(3, true);
 		g.addEdge(0, 1, 10);
-//		g.addEdge(0, 2, 15);
+		g.addEdge(0, 2, 15);
 //		g.addEdge(1, 3, 12);
 //		g.addEdge(1, 5, 15);
 //		g.addEdge(2, 1, 8);
@@ -23,7 +23,7 @@ public class LowDiameterDecomposition {
 //		g.addEdge(3, 5, 1);
 //		g.addEdge(5, 4, 5);
 		
-		ArrayList<int[]> edges = LowDiamDecomposition(g, 9);
+		ArrayList<int[]> edges = LowDiamDecomposition(g, 10);
 		
 		for (int[] edge : edges) {
 			System.out.println(edge[0] + " " + edge[1]);
@@ -42,7 +42,7 @@ public class LowDiameterDecomposition {
 			return output;
 		}
 		
-		int s = 0;
+		int s = g.vertices.get(0);
 		Graph g_rev = createGRev(g);
 		int[] condAndi_max = CoreOrLayerRange(g, g_rev, s, d);
 		if (condAndi_max[0] == 1) {
@@ -288,7 +288,7 @@ public class LowDiameterDecomposition {
         	}
         	
         	if (!finished) {
-        		int[] result = oneIterationLayerRange(g, pq, settled, farthestDistancesSeen, constant, dist);
+        		int[] result = oneIterationLayerRange(g, pq, settled, farthestDistancesSeen, constant, dist, d);
             	if (result != null) {
             		if (result[0] == 1) {
             			j = result[1];
@@ -302,7 +302,7 @@ public class LowDiameterDecomposition {
         	}
         	
         	if (!finished_rev) {
-        		int[] result_rev = oneIterationLayerRange(g_rev, pq_rev, settled_rev, farthestDistancesSeen_rev, constant, dist_rev);
+        		int[] result_rev = oneIterationLayerRange(g_rev, pq_rev, settled_rev, farthestDistancesSeen_rev, constant, dist_rev, d);
             	if (result_rev != null) {
             		if (result_rev[0] == 1) {
             			j_rev = result_rev[1];
@@ -352,7 +352,7 @@ public class LowDiameterDecomposition {
 		init(g, pq, dist, s);
  
         while (settled.size() != g.n) {
-        	int[] result = oneIterationLayerRange(g, pq, settled, farthestDistancesSeen, constant, dist);
+        	int[] result = oneIterationLayerRange(g, pq, settled, farthestDistancesSeen, constant, dist, d);
         	
         	if (result != null) {
         		return result;
@@ -362,7 +362,7 @@ public class LowDiameterDecomposition {
         throw new Exception("Layer range did not find a satisfying i.");
 	}
 	
-	public static int[] oneIterationLayerRange(Graph g, PriorityQueue<Node> pq, Set<Integer> settled, ArrayList<int[]> farthestDistancesSeen, double constant, int[] dist) throws Exception {
+	public static int[] oneIterationLayerRange(Graph g, PriorityQueue<Node> pq, Set<Integer> settled, ArrayList<int[]> farthestDistancesSeen, double constant, int[] dist, int d) throws Exception {
 		if (pq.isEmpty()) {
 			/*
 			 * Nothing left to search.
@@ -391,6 +391,13 @@ public class LowDiameterDecomposition {
         }
         
         int farthestDistanceSeen = farthestDistancesSeen.get(farthestDistancesSeen.size() - 1)[0];
+        
+        if (farthestDistanceSeen > d) {
+        	// Can't be in case 1 because we don't consider the new vertex u in the count, 
+        	// and settled.size() was <=2n/3 last iteration. Therefore, we are in case 2.
+        	int[] output = {2, d};
+        	return output;
+        }
         
         // case 1
         if (settled.size() > 2.0 * g.n / 3.0) {

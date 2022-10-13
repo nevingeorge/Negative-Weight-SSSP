@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.Stack;
 
 public class Graph {
 	/*
@@ -15,6 +16,9 @@ public class Graph {
 	ArrayList<Integer>[] adjacencyList; // for 1 <= i <= v_max, contains an integer Arraylist where an element j indicates an edge (i, j)
 	boolean[][] containsEdge;
 	double[][] weights;
+	
+	// Used for calculating SCCs using Tarjan's Algorithm
+	private int Time;
 	
 	@SuppressWarnings("unchecked")
 	public Graph(int numVertices, boolean withAllVertices) {
@@ -40,6 +44,8 @@ public class Graph {
 			ArrayList<Integer> initAdjacencyLists = new ArrayList<Integer>();
 			adjacencyList[i] = initAdjacencyLists;
 		}
+		
+		Time = 0;
 	}
 	
 	public void addVertices(ArrayList<Integer> verticesToAdd) throws Exception {
@@ -103,5 +109,53 @@ public class Graph {
 				System.out.println();
 			}
 		}
+	}
+	
+	// SCC only run on graphs where n == v_max
+	// Runs Tarjan's Algorithm for finding SCCs
+	void SCC() {
+	    int[] disc = new int[n];
+	    int[] low = new int[n];
+	    Time = 0;
+	    for(int i = 0; i < n; i++) {
+	        disc[i] = -1;
+	        low[i] = -1;
+	    }
+	     
+	    boolean[] stackMember = new boolean[n];
+	    Stack<Integer> st = new Stack<Integer>();
+	     
+	    for(int i = 0; i < n; i++) {
+	        if (disc[i] == -1) {
+	            SCCUtil(i, low, disc, stackMember, st);
+	        }
+	    }
+	}
+		
+	void SCCUtil(int u, int low[], int disc[], boolean stackMember[], Stack<Integer> st) {
+	    disc[u] = Time;
+	    low[u] = Time;
+	    Time += 1;
+	    stackMember[u] = true;
+	    st.push(u);
+	     
+	    for (int v : adjacencyList[u]) {
+	        if (disc[v] == -1) {
+	            SCCUtil(v, low, disc, stackMember, st);
+	            low[u] = Math.min(low[u], low[v]);
+	        } else if (stackMember[v] == true) {
+	            low[u] = Math.min(low[u], disc[v]);
+	        }
+	    }
+
+	    int w = -1;
+	    if (low[u] == disc[u]) {
+	        while (w != u) {
+	            w = (int) st.pop();
+	            System.out.print(w + " ");
+	            stackMember[w] = false;
+	        }
+	        System.out.println();
+	    }
 	}
 }
