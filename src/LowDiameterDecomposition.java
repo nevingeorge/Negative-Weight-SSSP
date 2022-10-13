@@ -10,22 +10,20 @@ import org.apache.commons.rng.simple.RandomSource;
 
 // input graph G is guaranteed to have non-negative integer edge weights
 public class LowDiameterDecomposition {
-	
-	public static final int c = 10;
 
 	public static void main(String[] args) throws Exception {
-		Graph g = new Graph(6, true);
+		Graph g = new Graph(2, true);
 		g.addEdge(0, 1, 10);
-		g.addEdge(0, 2, 15);
-		g.addEdge(1, 3, 12);
-		g.addEdge(1, 5, 15);
-		g.addEdge(2, 1, 8);
-		g.addEdge(2, 4, 10);
-		g.addEdge(3, 4, 2);
-		g.addEdge(3, 5, 1);
-		g.addEdge(5, 4, 5);
+//		g.addEdge(0, 2, 15);
+//		g.addEdge(1, 3, 12);
+//		g.addEdge(1, 5, 15);
+//		g.addEdge(2, 1, 8);
+//		g.addEdge(2, 4, 10);
+//		g.addEdge(3, 4, 2);
+//		g.addEdge(3, 5, 1);
+//		g.addEdge(5, 4, 5);
 		
-		ArrayList<int[]> edges = LowDiamDecomposition(g, 1000);
+		ArrayList<int[]> edges = LowDiamDecomposition(g, 9);
 		
 		for (int[] edge : edges) {
 			System.out.println(edge[0] + " " + edge[1]);
@@ -40,7 +38,7 @@ public class LowDiameterDecomposition {
 	// Each int[] in the output ArrayList has size two and represents an edge (int[0], int[1])
 	public static ArrayList<int[]> LowDiamDecomposition(Graph g, int d) throws Exception {
 		ArrayList<int[]> output = new ArrayList<int[]>();
-		if (g.n == 0) {
+		if (g.n <= 1) {
 			return output;
 		}
 		
@@ -53,7 +51,7 @@ public class LowDiameterDecomposition {
 		
 		int r = (int) Math.ceil(d / (3.0 * Math.log(g.n)));
 		int i_min = condAndi_max[1] - r;
-		int i_tilda = GeometricSampler.of(RandomSource.MT.create(), 2*c*Math.log(g.n) / (double) r).sample();
+		int i_tilda = GeometricSampler.of(RandomSource.MT.create(), calculateGeoProb(g.n, r)).sample();
 		int i_rnd = i_min + Math.min(i_tilda, r);
 		
 		if (condAndi_max[0] == 2) {
@@ -69,25 +67,57 @@ public class LowDiameterDecomposition {
 			Graph subGraph = getSubgraph(g_rev, ball, false);	
 			Graph minusSubGraph = getSubgraph(g_rev, ball, true);
 			
-			return edgeUnion(layer(g_rev, ball), LowDiamDecomposition(subGraph, d), LowDiamDecomposition(minusSubGraph, d));
+			return revEdges(edgeUnion(layer(g_rev, ball), LowDiamDecomposition(subGraph, d), LowDiamDecomposition(minusSubGraph, d)));
 		}
 		
 		throw new Exception("LowDiamDecomposition failed.");
 	}
 	
+	public static ArrayList<int[]> revEdges(ArrayList<int[]> edges) {
+		ArrayList<int[]> revEdgeSet = new ArrayList<int[]>();
+		for (int[] edge : edges) {
+			int[] revEdge = new int[2];
+			revEdge[0] = edge[1];
+			revEdge[1] = edge[0];
+			revEdgeSet.add(revEdge);
+		}
+		
+		return revEdgeSet;
+	}
+	
+	public static double calculateGeoProb(int n, int r) {
+		double c = Math.pow(n, -1);
+		double prob = 2 * c * Math.log(n) / (double) r;
+		if (prob > 1) {
+			System.out.println("Geometric probability was more than 1 (set to 1).");
+			prob = 1;
+		}
+		return prob;
+	}
+	
 	public static ArrayList<int[]> RandomTrim(Graph g, Graph g_rev, int s, int d) throws Exception {
 		ArrayList<int[]> e_sep = new ArrayList<int[]>();
-		
+
 		int[] dist = Dijkstra(g, s);
 		int[] dist_rev = Dijkstra(g_rev, s);
 		
+		boolean alreadyWDiam4D = true;
 		ArrayList<Integer> v_far = new ArrayList<Integer>();
 		for (int v = 0; v < g.v_max; v++) {
 			if (g.containsVertex[v]) {
 				if (Math.max(dist[v], dist_rev[v]) > 2 * d) {
 					v_far.add(v);
+					
+					if (Math.max(dist[v], dist_rev[v]) > 4 * d) {
+						alreadyWDiam4D = false;
+					}
 				}
 			}
+		}
+		
+		// base case
+		if (alreadyWDiam4D) {
+			return e_sep;
 		}
 		
 		ArrayList<Integer> m = new ArrayList<Integer>(); // marked vertices
@@ -97,7 +127,7 @@ public class LowDiameterDecomposition {
 		
 		int v = diffVertex(v_far, m, g.v_max);
 		while (v != -1) {
-			int i_rnd = i_min + Math.min(GeometricSampler.of(RandomSource.MT.create(), 2*c*Math.log(g.n) / (double) r).sample(), r);
+			int i_rnd = i_min + Math.min(GeometricSampler.of(RandomSource.MT.create(), calculateGeoProb(g.n, r)).sample(), r);
 			
 			if (dist[v] > 2 * d) {
 				Graph gVMinusM = getSubgraph(g, m, true);
@@ -109,7 +139,7 @@ public class LowDiameterDecomposition {
 				Graph gVMinusM_rev = getSubgraph(g_rev, m, true);
 				ArrayList<Integer> ball_rev = volume(gVMinusM_rev, v, i_rnd);
 				Graph GVMinusMSubGraph_rev = getSubgraph(gVMinusM_rev, ball_rev, false);
-				e_sep = edgeUnion(e_sep, layer(gVMinusM_rev, ball_rev), LowDiamDecomposition(GVMinusMSubGraph_rev, d));
+				e_sep = edgeUnion(e_sep, revEdges(layer(gVMinusM_rev, ball_rev)), revEdges(LowDiamDecomposition(GVMinusMSubGraph_rev, d)));
 				m = vertexUnion(m, ball_rev);
 			} else {
 				throw new Exception("RandomTrim failed.");
