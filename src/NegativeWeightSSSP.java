@@ -1,3 +1,4 @@
+import java.util.ArrayList;
 
 public class NegativeWeightSSSP {
 
@@ -11,6 +12,12 @@ public class NegativeWeightSSSP {
 	    g1.addEdge(3, 4, 1);
 	    System.out.println("SSC in first graph ");
 	    g1.SCC();
+	    
+	    ArrayList<int[]> edges = LowDiameterDecomposition.LDD(g1, 0);
+		
+		for (int[] edge : edges) {
+			System.out.println(edge[0] + " " + edge[1]);
+		}
 	 
 	    Graph g2 = new Graph(4, true);
 	    g2.addEdge(0, 1, 1);

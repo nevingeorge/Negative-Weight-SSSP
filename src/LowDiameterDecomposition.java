@@ -12,18 +12,22 @@ import org.apache.commons.rng.simple.RandomSource;
 public class LowDiameterDecomposition {
 
 	public static void main(String[] args) throws Exception {
-		Graph g = new Graph(3, true);
-		g.addEdge(0, 1, 10);
-		g.addEdge(0, 2, 15);
-//		g.addEdge(1, 3, 12);
-//		g.addEdge(1, 5, 15);
-//		g.addEdge(2, 1, 8);
-//		g.addEdge(2, 4, 10);
-//		g.addEdge(3, 4, 2);
-//		g.addEdge(3, 5, 1);
-//		g.addEdge(5, 4, 5);
+		Graph g = new Graph(12, true);
+		g.addEdge(0, 1, 1);
+	    g.addEdge(1, 2, 1);
+	    g.addEdge(2, 3, 1);
+	    g.addEdge(3, 4, 1);
+	    g.addEdge(4, 5, 1);
+	    g.addEdge(5, 0, 1);
+	    
+	    g.addEdge(6, 7, 1);
+	    g.addEdge(7, 8, 1);
+	    g.addEdge(8, 9, 1);
+	    g.addEdge(9, 10, 1);
+	    g.addEdge(10, 11, 1);
+	    g.addEdge(11, 6, 1);
 		
-		ArrayList<int[]> edges = LowDiamDecomposition(g, 10);
+		ArrayList<int[]> edges = LDD(g, 6);
 		
 		for (int[] edge : edges) {
 			System.out.println(edge[0] + " " + edge[1]);
@@ -36,7 +40,7 @@ public class LowDiameterDecomposition {
 	// – For every e ∈ E, Pr[e ∈ e_sep] = O(w(e)·(logn)^2/D +n^−10). These probabilities are not
 	// guaranteed to be independent.
 	// Each int[] in the output ArrayList has size two and represents an edge (int[0], int[1])
-	public static ArrayList<int[]> LowDiamDecomposition(Graph g, int d) throws Exception {
+	public static ArrayList<int[]> LDD(Graph g, int d) throws Exception {
 		ArrayList<int[]> output = new ArrayList<int[]>();
 		if (g.n <= 1) {
 			return output;
@@ -59,7 +63,7 @@ public class LowDiameterDecomposition {
 			Graph subGraph = getSubgraph(g, ball, false);
 			Graph minusSubGraph = getSubgraph(g, ball, true);
 			
-			return edgeUnion(layer(g, ball), LowDiamDecomposition(subGraph, d), LowDiamDecomposition(minusSubGraph, d));
+			return edgeUnion(layer(g, ball), LDD(subGraph, d), LDD(minusSubGraph, d));
 		}
 		
 		if (condAndi_max[0] == 3) {
@@ -67,11 +71,12 @@ public class LowDiameterDecomposition {
 			Graph subGraph = getSubgraph(g_rev, ball, false);	
 			Graph minusSubGraph = getSubgraph(g_rev, ball, true);
 			
-			return revEdges(edgeUnion(layer(g_rev, ball), LowDiamDecomposition(subGraph, d), LowDiamDecomposition(minusSubGraph, d)));
+			return revEdges(edgeUnion(layer(g_rev, ball), LDD(subGraph, d), LDD(minusSubGraph, d)));
 		}
 		
 		throw new Exception("LowDiamDecomposition failed.");
 	}
+	
 	
 	public static ArrayList<int[]> revEdges(ArrayList<int[]> edges) {
 		ArrayList<int[]> revEdgeSet = new ArrayList<int[]>();
@@ -85,15 +90,16 @@ public class LowDiameterDecomposition {
 		return revEdgeSet;
 	}
 	
+	
 	public static double calculateGeoProb(int n, int r) {
 		double c = Math.pow(n, -1);
 		double prob = 2 * c * Math.log(n) / (double) r;
 		if (prob > 1) {
 			System.out.println("Geometric probability was more than 1 (set to 1).");
-			prob = 1;
 		}
-		return prob;
+		return Math.min(1, prob);
 	}
+	
 	
 	public static ArrayList<int[]> RandomTrim(Graph g, Graph g_rev, int s, int d) throws Exception {
 		ArrayList<int[]> e_sep = new ArrayList<int[]>();
@@ -133,13 +139,13 @@ public class LowDiameterDecomposition {
 				Graph gVMinusM = getSubgraph(g, m, true);
 				ArrayList<Integer> ball = volume(gVMinusM, v, i_rnd);
 				Graph GVMinusMSubGraph = getSubgraph(gVMinusM, ball, false);
-				e_sep = edgeUnion(e_sep, layer(gVMinusM, ball), LowDiamDecomposition(GVMinusMSubGraph, d));
+				e_sep = edgeUnion(e_sep, layer(gVMinusM, ball), LDD(GVMinusMSubGraph, d));
 				m = vertexUnion(m, ball);
 			} else if (dist_rev[v] > 2 * d) {
 				Graph gVMinusM_rev = getSubgraph(g_rev, m, true);
 				ArrayList<Integer> ball_rev = volume(gVMinusM_rev, v, i_rnd);
 				Graph GVMinusMSubGraph_rev = getSubgraph(gVMinusM_rev, ball_rev, false);
-				e_sep = edgeUnion(e_sep, revEdges(layer(gVMinusM_rev, ball_rev)), revEdges(LowDiamDecomposition(GVMinusMSubGraph_rev, d)));
+				e_sep = edgeUnion(e_sep, revEdges(layer(gVMinusM_rev, ball_rev)), revEdges(LDD(GVMinusMSubGraph_rev, d)));
 				m = vertexUnion(m, ball_rev);
 			} else {
 				throw new Exception("RandomTrim failed.");
@@ -153,6 +159,8 @@ public class LowDiameterDecomposition {
 	
 	// returns the subgraph of g containing only the vertices in ball
 	// if setMinus is true, the function returns the subgraph of g containing only the vertices outside of the ball
+	
+	
 	public static Graph getSubgraph(Graph g, ArrayList<Integer> ball, boolean setMinus) throws Exception {
 		boolean[] contains = new boolean[g.v_max];
 		for (int i = 0; i < ball.size(); i++) {
@@ -187,6 +195,7 @@ public class LowDiameterDecomposition {
 	}
 	
 	// returns the union of two vertex sets
+	
 	public static ArrayList<Integer> vertexUnion(ArrayList<Integer> set1, ArrayList<Integer> set2) {
 		Set<Integer> set = new HashSet<Integer>();
 		addVerticesToSet(set, set1);
@@ -200,6 +209,7 @@ public class LowDiameterDecomposition {
 		return output;
 	}
 	
+	
 	public static void addVerticesToSet(Set<Integer> set, ArrayList<Integer> vertices) {
 		for (int vertex : vertices) {
 			set.add(vertex);
@@ -207,6 +217,7 @@ public class LowDiameterDecomposition {
 	}
 	
 	// returns the union of three edge sets
+	
 	public static ArrayList<int[]> edgeUnion(ArrayList<int[]> set1, ArrayList<int[]> set2, ArrayList<int[]> set3) {
 		Set<List<Integer>> set = new HashSet<List<Integer>>();
 		addEdgesToSet(set, set1);
@@ -222,6 +233,7 @@ public class LowDiameterDecomposition {
 		return distinctEdges;
 	}
 	
+	
 	public static void addEdgesToSet(Set<List<Integer>> set, ArrayList<int[]> edges) {
 		for (int[] edge : edges) {
 			List<Integer> list = new ArrayList<Integer>();
@@ -232,6 +244,7 @@ public class LowDiameterDecomposition {
 	}
 	
 	// returns a vertex in set1 that's not in set2, or -1 if none exists
+	
 	public static int diffVertex(ArrayList<Integer> set1, ArrayList<Integer> set2, int v_max) {
 		boolean[] contains = new boolean[v_max];
 		for (int i = 0; i < set2.size(); i++) {
@@ -253,6 +266,7 @@ public class LowDiameterDecomposition {
 	//	– if Condition = 3 then n_G_rev(s, i) ≤ 2n and Vol_G_rev(s, i) and Vol_G_rev(s, i − ⌈D/(3lgn)⌉) are in the same canonical range.
 	//	If Condition ∈ {2, 3} then i ≥ D/(3lgn).
 	// Runs LayerRange on G and G_rev in parallel.
+	
 	public static int[] CoreOrLayerRange(Graph g, Graph g_rev, int s, int d) throws Exception {
 		ArrayList<int[]> farthestDistancesSeen = new ArrayList<int[]>();
 		ArrayList<int[]> farthestDistancesSeen_rev = new ArrayList<int[]>();
@@ -339,6 +353,7 @@ public class LowDiameterDecomposition {
 	//	– if Condition = 1 then n_G(s,i) > 2n,
 	//	– if Condition = 2 then n_G(s, i) ≤ 2n and i ≥ D/(3lgn); moreover, Vol_G(s, i) and
 	//	Vol_G(s, i − ⌈D/(3lgn)⌉) are in the same canonical range.
+	
 	public static int[] LayerRange(Graph g, int s, int d) throws Exception {
 		// variable i in the paper
 		// elts are int[], where int[0] is the farthest distance seen and int[1] is the value of Vol_G(s, int[0])
@@ -362,6 +377,8 @@ public class LowDiameterDecomposition {
         throw new Exception("Layer range did not find a satisfying i.");
 	}
 	
+	
+	
 	public static int[] oneIterationLayerRange(Graph g, PriorityQueue<Node> pq, Set<Integer> settled, ArrayList<int[]> farthestDistancesSeen, double constant, int[] dist, int d) throws Exception {
 		if (pq.isEmpty()) {
 			/*
@@ -372,7 +389,7 @@ public class LowDiameterDecomposition {
 			 * Guaranteed that i_big will satisfy i_big >= D/(3lgn) and the canonical ranges.
 			 */
 			int farthestDistanceSeen = farthestDistancesSeen.get(farthestDistancesSeen.size() - 1)[0];
-			int i_big = farthestDistanceSeen + (int) Math.ceil(constant);
+			int i_big = Math.min(d, farthestDistanceSeen + (int) Math.ceil(constant));
 			int[] output = {2, i_big};
 			return output;
         }
@@ -392,13 +409,6 @@ public class LowDiameterDecomposition {
         
         int farthestDistanceSeen = farthestDistancesSeen.get(farthestDistancesSeen.size() - 1)[0];
         
-        if (farthestDistanceSeen > d) {
-        	// Can't be in case 1 because we don't consider the new vertex u in the count, 
-        	// and settled.size() was <=2n/3 last iteration. Therefore, we are in case 2.
-        	int[] output = {2, d};
-        	return output;
-        }
-        
         // case 1
         if (settled.size() > 2.0 * g.n / 3.0) {
         	int[] output = {1, farthestDistanceSeen};
@@ -410,7 +420,7 @@ public class LowDiameterDecomposition {
         	return output;
         }
         
-        updateNeighbors(g, u, settled, pq, dist);
+        updateNeighbors(g, u, settled, pq, dist, d);
 
         return null;
 	}
@@ -418,6 +428,7 @@ public class LowDiameterDecomposition {
 	// Checks whether Vol_G(s, i - ceil[D/(3logn)]) and Vol_G(s, i) are in the same canonical range.
 	// Two numbers are in the same canonical range if they lie in the same half-open interval
 	// [2^j, 2^{j+1}), where j is a non-negative integer.
+	
 	public static boolean sameCanonicalRange(ArrayList<int[]> farthestDistancesSeen, double constant) {
 		int i = farthestDistancesSeen.get(farthestDistancesSeen.size() - 1)[0];
 		int vol1 = farthestDistancesSeen.get(farthestDistancesSeen.size() - 1)[1];
@@ -437,6 +448,7 @@ public class LowDiameterDecomposition {
 	}
 	
 	// {(u,v) in E_H | u in V_H(s,r) and v not in V_H(s,r)}
+	
 	public static ArrayList<int[]> layer(Graph g, ArrayList<Integer> ball) {
 		boolean[] contains = new boolean[g.v_max];
 		
@@ -461,6 +473,7 @@ public class LowDiameterDecomposition {
 	}
 	
 	// returns all the vertices in g within a distance of r from source vertex s using Dijkstra's
+	
 	public static ArrayList<Integer> volume(Graph g, int s, int r) {
 		ArrayList<Integer> output = new ArrayList<Integer>();
 		
@@ -483,7 +496,7 @@ public class LowDiameterDecomposition {
             output.add(u);
             settled.add(u);
             
-            updateNeighbors(g, u, settled, pq, dist);
+            updateNeighbors(g, u, settled, pq, dist, r);
         }
 
         return output;
@@ -493,6 +506,7 @@ public class LowDiameterDecomposition {
 	
 	// returns an array containing the distances from s to every vertex in g
 	// runs in O(V + ElogV)
+	
 	public static int[] Dijkstra(Graph g, int s) {		
 		Set<Integer> settled = new HashSet<Integer>();
 	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
@@ -511,11 +525,12 @@ public class LowDiameterDecomposition {
             }
 
             settled.add(u);
-            updateNeighbors(g, u, settled, pq, dist);
+            updateNeighbors(g, u, settled, pq, dist, Integer.MAX_VALUE);
         }
         
         return dist;
 	}
+	
 	
 	public static void init(Graph g, PriorityQueue<Node> pq, int[] dist, int s) {
 		for (int i = 0; i < g.v_max; i++) {
@@ -526,7 +541,8 @@ public class LowDiameterDecomposition {
         dist[s] = 0;
 	}
 	
-	public static void updateNeighbors(Graph g, int u, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist) {
+	
+	public static void updateNeighbors(Graph g, int u, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist, int d) {
 		ArrayList<Integer> neighbors = g.adjacencyList[u];
 
         for (int v : neighbors) {
@@ -536,8 +552,11 @@ public class LowDiameterDecomposition {
                 if (newDistance < dist[v]) {
                     dist[v] = newDistance;
                 }
-
-                pq.add(new Node(v, dist[v]));
+                
+                // only want to process nodes within a distance of d from the source
+                if (dist[v] <= d) {
+                	pq.add(new Node(v, dist[v]));
+                }
             }
         }
 	}
