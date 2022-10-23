@@ -18,7 +18,7 @@ public class Graph {
 	double[][] weights;
 	
 	// Used for calculating SCCs using Tarjan's Algorithm
-	private int Time;
+	int time;
 	
 	@SuppressWarnings("unchecked")
 	public Graph(int numVertices, boolean withAllVertices) {
@@ -45,7 +45,7 @@ public class Graph {
 			adjacencyList[i] = initAdjacencyLists;
 		}
 		
-		Time = 0;
+		time = 0;
 	}
 	
 	public void addVertices(ArrayList<Integer> verticesToAdd) throws Exception {
@@ -113,10 +113,10 @@ public class Graph {
 	
 	// SCC only run on graphs where n == v_max
 	// Runs Tarjan's Algorithm for finding SCCs
-	void SCC() {
+	ArrayList<ArrayList<Integer>> SCC() {
 	    int[] disc = new int[n];
 	    int[] low = new int[n];
-	    Time = 0;
+	    time = 0;
 	    for(int i = 0; i < n; i++) {
 	        disc[i] = -1;
 	        low[i] = -1;
@@ -125,37 +125,45 @@ public class Graph {
 	    boolean[] stackMember = new boolean[n];
 	    Stack<Integer> st = new Stack<Integer>();
 	     
+	    ArrayList<ArrayList<Integer>> SCCverts = new ArrayList<ArrayList<Integer>>();
 	    for(int i = 0; i < n; i++) {
 	        if (disc[i] == -1) {
-	            SCCUtil(i, low, disc, stackMember, st);
+	        	SCCverts.addAll(SCCUtil(i, low, disc, stackMember, st));
 	        }
 	    }
+	    
+	    return SCCverts;
 	}
 		
-	void SCCUtil(int u, int low[], int disc[], boolean stackMember[], Stack<Integer> st) {
-	    disc[u] = Time;
-	    low[u] = Time;
-	    Time += 1;
+	public ArrayList<ArrayList<Integer>> SCCUtil(int u, int low[], int disc[], boolean stackMember[], Stack<Integer> st) {
+		ArrayList<ArrayList<Integer>> SCCverts = new ArrayList<ArrayList<Integer>>(); 
+		
+		disc[u] = time;
+	    low[u] = time;
+	    time += 1;
 	    stackMember[u] = true;
 	    st.push(u);
 	     
 	    for (int v : adjacencyList[u]) {
 	        if (disc[v] == -1) {
-	            SCCUtil(v, low, disc, stackMember, st);
+	            SCCverts.addAll(SCCUtil(v, low, disc, stackMember, st));
 	            low[u] = Math.min(low[u], low[v]);
 	        } else if (stackMember[v] == true) {
 	            low[u] = Math.min(low[u], disc[v]);
 	        }
 	    }
-
+	    
 	    int w = -1;
 	    if (low[u] == disc[u]) {
+	    	ArrayList<Integer> oneSCC = new ArrayList<Integer>();
 	        while (w != u) {
 	            w = (int) st.pop();
-	            System.out.print(w + " ");
+	            oneSCC.add(w);
 	            stackMember[w] = false;
 	        }
-	        System.out.println();
+	        SCCverts.add(oneSCC);
 	    }
+	    
+	    return SCCverts;
 	}
 }
