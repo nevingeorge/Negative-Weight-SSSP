@@ -70,6 +70,41 @@ public class NegativeWeightSSSP {
 //	    }
 	}
 	
+	// Returns an array containing the distances from s to every vertex in g. 
+	public static int[] SPmain(Graph g, int s) throws Exception {
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				g.weights[u][v] *= 2 * g.n;
+			}
+		}
+		int B = roundPower2(2 * g.n);
+		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		
+		for (int i = 1; i <= logBase2(B); i++) {
+			Graph g_phi = createModifiedGB(g, 0, false, new HashSet<int[]>(), phi);
+			HashMap<Integer, Integer> phi_i = ScaleDown(g_phi, g.n, B / (int) Math.pow(2, i));
+			phi = addPhi(phi, phi_i);
+		}
+		
+		// create G^*
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				g.weights[u][v] += phi.get(v) - phi.get(u) + 1;
+			}
+		}
+		
+		return LowDiameterDecomposition.Dijkstra(g, s);
+	}
+	
+	// rounds n up to the nearest power of 2
+	public static int roundPower2(int n) {
+		return (int) Math.pow(2, Math.ceil(logBase2(n)));
+	}
+	
+	public static double logBase2(int n) {
+		return Math.log(n) / Math.log(2);
+	}
+	
 	/*
 	 * 1. INPUT REQUIREMENTS:
 	 * (a) B is positive integer, w is integral, and w(e) ≥ −2B for all e ∈ E

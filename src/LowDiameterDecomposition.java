@@ -497,7 +497,6 @@ public class LowDiameterDecomposition {
 	
 	// returns an array containing the distances from s to every vertex in g
 	// runs in O(V + ElogV)
-	
 	public static int[] Dijkstra(Graph g, int s) {		
 		Set<Integer> settled = new HashSet<Integer>();
 	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
