@@ -68,6 +68,19 @@ public class NegativeWeightSSSP {
 //	    	}
 //	    	System.out.println();
 //	    }
+		
+		Graph g = new Graph(6, true);
+		g.addEdge(0, 1, 1);
+		g.addEdge(1, 2, 1);
+		g.addEdge(2, 3, 1);
+		g.addEdge(3, 4, 1);
+		g.addEdge(4, 5, 1);
+		g.addEdge(5, 0, 1);
+		int[] tree = SPmain(g, 0);
+		
+		for (int i = 0; i < 6; i++) {
+			System.out.println("Vertex " + i + ": " + tree[i]);
+		}
 	}
 	
 	// Returns an array containing the distances from s to every vertex in g. 
@@ -346,7 +359,7 @@ public class NegativeWeightSSSP {
 		for (int v = 0; v < s; v++) {
 			dist[v] = Integer.MAX_VALUE;
 		}
-		PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
+		PriorityQueue<Node> pq = new PriorityQueue<Node>(Gs.v_max, new Node());
 		pq.add(new Node(s, dist[s]));
 		HashSet<Integer> marked = new HashSet<Integer>();
 		
@@ -356,25 +369,25 @@ public class NegativeWeightSSSP {
 				int v = pq.remove().node;
 				marked.add(v);
 				
-				for (int x : g.adjacencyList[v]) {
-					if (g.weights[v][x] >= 0 && (dist[v] + g.weights[v][x] < dist[x])) {
+				for (int x : Gs.adjacencyList[v]) {
+					if (Gs.weights[v][x] >= 0 && (dist[v] + Gs.weights[v][x] < dist[x])) {
 						marked.add(v);
 						pq.add(new Node(x, dist[x]));
-						dist[x] = dist[v] + (int) g.weights[v][x];
+						dist[x] = dist[v] + (int) Gs.weights[v][x];
 					}
 				}
 			}
 			
 			// Bellman-Ford Phase
 			for (int v : marked) {
-				for (int x : g.adjacencyList[v]) {
-					if (g.weights[v][x] < 0 && (dist[v] + g.weights[v][x] < dist[x])) {
-						dist[x] = dist[v] + (int) g.weights[v][x];
+				for (int x : Gs.adjacencyList[v]) {
+					if (Gs.weights[v][x] < 0 && (dist[v] + Gs.weights[v][x] < dist[x])) {
+						dist[x] = dist[v] + (int) Gs.weights[v][x];
 						pq.add(new Node(x, dist[x]));
 					}
 				}
-				marked.remove(v);
 			}
+			marked = new HashSet<Integer>();
 		}
 		
 		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
