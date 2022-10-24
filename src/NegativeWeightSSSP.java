@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Stack;
 
 public class NegativeWeightSSSP {
 
@@ -96,12 +97,14 @@ public class NegativeWeightSSSP {
 			ArrayList<ArrayList<Integer>> SCCs = g_B_Esep.SCC();
 			
 			// phase 1
-			Graph H = createModifiedGB(g, 0, false, getEdgesBetweenSCCs(g, SCCs), new HashMap<Integer, Integer>());
+			HashMap<Integer, Integer> vertexToSCCMap = getVertexToSCCMap(SCCs);
+			HashSet<int[]> edgesBetweenSCCs = getEdgesBetweenSCCs(g, vertexToSCCMap);
+			Graph H = createModifiedGB(g, 0, false, edgesBetweenSCCs, new HashMap<Integer, Integer>());
 			HashMap<Integer, Integer> phi_1 = ScaleDown(H, delta / 2, B);
 			
 			// phase 2
 			Graph g_B_E_sep_phi1 = createModifiedGB(g, B, false, E_sep_hash, phi_1);
-			HashMap<Integer, Integer> phi = FixDAGEdges(g_B_E_sep_phi1, SCCs);
+			HashMap<Integer, Integer> phi = FixDAGEdges(g_B_E_sep_phi1, SCCs, vertexToSCCMap, edgesBetweenSCCs);
 			phi_2 = addPhi(phi_1, phi);
 		}
 		
@@ -124,57 +127,58 @@ public class NegativeWeightSSSP {
 		Graph modG = new Graph(g.n, false);
 		modG.addVertices(g.vertices);
 		
-		for (int u = 0; u < g.n; u++) {
-			if (g.containsVertex[u]) { 
-				for (int v : g.adjacencyList[u]) {
-					int[] edge = {u, v};
-					if (!remEdges.contains(edge)) {
-						double weight = g.weights[u][v];
-						
-						if (weight < 0) {
-							weight += B;
-						}
-						
-						if (nneg) {
-							weight = Math.max(0, weight);
-						}
-						
-						if (phi.get(u) != null) {
-							weight += phi.get(u);
-						}
-						if (phi.get(v) != null) {
-							weight -= phi.get(v);
-						}
-						
-						modG.addEdge(u, v, weight);
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				int[] edge = {u, v};
+				if (!remEdges.contains(edge)) {
+					double weight = g.weights[u][v];
+					
+					if (weight < 0) {
+						weight += B;
 					}
+					
+					if (nneg) {
+						weight = Math.max(0, weight);
+					}
+					
+					if (phi.get(u) != null) {
+						weight += phi.get(u);
+					}
+					if (phi.get(v) != null) {
+						weight -= phi.get(v);
+					}
+					
+					modG.addEdge(u, v, weight);
 				}
 			}
 		}
 		
 		return modG;
 	}	
-	public static HashSet<int[]> getEdgesBetweenSCCs(Graph g, ArrayList<ArrayList<Integer>> SCCs) {
-		HashMap<Integer, Integer> vertexToSCCIndex = new HashMap<Integer, Integer>();
-		for (int i = 0; i < SCCs.size(); i++) {
-			for (int v : SCCs.get(i)) {
-				vertexToSCCIndex.put(v, i);
-			}
-		}
-		
+	
+	public static HashSet<int[]> getEdgesBetweenSCCs(Graph g, HashMap<Integer, Integer> vertexToSCCMap) {
 		HashSet<int[]> edgesBetweenSCCs = new HashSet<int[]>();
-		for (int u = 0; u < g.n; u++) {
-			if (g.containsVertex[u]) { 
-				for (int v : g.adjacencyList[u]) {
-					if (vertexToSCCIndex.get(u) != vertexToSCCIndex.get(v)) {
-						int[] edge = {u, v};
-						edgesBetweenSCCs.add(edge);
-					}
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				if (vertexToSCCMap.get(u) != vertexToSCCMap.get(v)) {
+					int[] edge = {u, v};
+					edgesBetweenSCCs.add(edge);
 				}
 			}
 		}
 		
 		return edgesBetweenSCCs;
+	}
+	
+	public static HashMap<Integer, Integer> getVertexToSCCMap(ArrayList<ArrayList<Integer>> SCCs) {
+		HashMap<Integer, Integer> vertexToSCCMap = new HashMap<Integer, Integer>();
+		for (int i = 0; i < SCCs.size(); i++) {
+			for (int v : SCCs.get(i)) {
+				vertexToSCCMap.put(v, i);
+			}
+		}
+		
+		return vertexToSCCMap;
 	}
 
 	public static HashMap<Integer, Integer> addPhi(HashMap<Integer, Integer> phi_1, HashMap<Integer, Integer> phi_2) {
@@ -198,9 +202,96 @@ public class NegativeWeightSSSP {
 		return newPhi;
 	}
 	
-	public static HashMap<Integer, Integer> FixDAGEdges(Graph g, ArrayList<ArrayList<Integer>> SCCs) {
-		return null;
+	public static HashMap<Integer, Integer> FixDAGEdges(Graph g, ArrayList<ArrayList<Integer>> SCCs, HashMap<Integer, Integer> vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
+		HashMap<Integer, Integer> topOrdering = topSort(SCCs.size(), createSCCAdjList(SCCs, vertexToSCCMap, edgesBetweenSCCs));
+		
+		int[] mu = new int[SCCs.size()]; // indices are in topological order (e.g., index 0 corresponds to the first SCC in topological order)
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				int SCCu = vertexToSCCMap.get(u);
+				int SCCv = vertexToSCCMap.get(v);
+				if ((SCCu != SCCv) && g.weights[u][v] < mu[topOrdering.get(SCCv)]) {
+					mu[topOrdering.get(SCCv)] = (int) g.weights[u][v];
+				}
+			}
+		}
+		
+		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		int m = 0;
+		for (int j = 1; j < SCCs.size(); j++) {
+			m += mu[j];
+			for (int v : SCCs.get(topOrdering.get(-1 * j - 1))) {
+				phi.put(v, m);
+			}
+		}
+		
+		return phi;
 	}
+	
+	// returns the adjacency list for the DAG where every SCC is viewed as a single vertex
+	public static ArrayList<Integer>[] createSCCAdjList(ArrayList<ArrayList<Integer>> SCCs, HashMap<Integer, Integer> vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
+		@SuppressWarnings("unchecked")
+		ArrayList<Integer>[] SCCAdjList = new ArrayList[SCCs.size()];
+		for (int i = 0; i < SCCs.size(); i++) {
+			SCCAdjList[i] = new ArrayList<Integer>();
+		}
+		boolean[][] containsEdge = new boolean[SCCs.size()][SCCs.size()];
+		
+		for (int[] edge : edgesBetweenSCCs) {
+			int u = vertexToSCCMap.get(edge[0]);
+			int v = vertexToSCCMap.get(edge[1]);
+			if (!containsEdge[u][v]) {
+				containsEdge[u][v] = true;
+				SCCAdjList[u].add(v);
+			}
+		}
+		
+		return SCCAdjList;
+	}
+	
+	
+	/*
+	 * Input: DAG
+	 * Calculates a topological ordering of the n vertices in the DAG
+	 * Returns a map of vertex v to its index i in the ordering
+	 * The index in the order i is also mapped to the vertex v (bijective mapping);
+	 * however, to prevent duplicate keys, instead of using the key i we use the
+	 * key -1 * i - 1.
+	 */
+	public static HashMap<Integer, Integer> topSort(int n, ArrayList<Integer>[] adjList) {
+		HashMap<Integer, Integer> topOrdering = new HashMap<Integer, Integer>();
+		Stack<Integer> stack = new Stack<Integer>();
+		boolean[] visited = new boolean[n];
+        
+        for (int i = 0; i < n; i++) {
+            if (!visited[i]) {
+                topSortUtil(i, visited, stack, adjList);
+            }
+        }
+        
+        int i = 0;
+        while (!stack.empty()) {
+        	int v = stack.pop();
+        	topOrdering.put(v, i);
+        	topOrdering.put(-1 * i - 1, v);
+        	i++;
+        }
+        
+        return topOrdering;
+	}
+	
+	public static void topSortUtil(int u, boolean[] visited, Stack<Integer> stack, ArrayList<Integer>[] adjList) {
+		visited[u] = true;
+		
+		for (int v : adjList[u]) {
+			if (!visited[v]) {
+				topSortUtil(v, visited, stack, adjList);
+			}
+		}
+
+		stack.push(u);
+	}
+	
 	
 	public static HashMap<Integer, Integer> ElimNeg(Graph g) {
 		return null;
@@ -215,13 +306,11 @@ public class NegativeWeightSSSP {
 		}
 		
 		ArrayList<Integer> vert = new ArrayList<Integer>();
-		for (int i = 0; i < g.v_max; i++) {
-			if (g.containsVertex[i]) {
-				if (!setMinus && contains[i]) {
-					vert.add(i);
-				} else if (setMinus && !contains[i]) {
-					vert.add(i);
-				}
+		for (int v : g.vertices) {
+			if (!setMinus && contains[v]) {
+				vert.add(v);
+			} else if (setMinus && !contains[v]) {
+				vert.add(v);
 			}
 		}
 		

@@ -109,14 +109,12 @@ public class LowDiameterDecomposition {
 		
 		boolean alreadyWDiam4D = true;
 		ArrayList<Integer> v_far = new ArrayList<Integer>();
-		for (int v = 0; v < g.v_max; v++) {
-			if (g.containsVertex[v]) {
-				if (Math.max(dist[v], dist_rev[v]) > 2 * d) {
-					v_far.add(v);
-					
-					if (Math.max(dist[v], dist_rev[v]) > 4 * d) {
-						alreadyWDiam4D = false;
-					}
+		for (int v : g.vertices) {
+			if (Math.max(dist[v], dist_rev[v]) > 2 * d) {
+				v_far.add(v);
+				
+				if (Math.max(dist[v], dist_rev[v]) > 4 * d) {
+					alreadyWDiam4D = false;
 				}
 			}
 		}
@@ -300,11 +298,9 @@ public class LowDiameterDecomposition {
 		Graph g_rev = new Graph(g.v_max, false);
 		g_rev.addVertices(g.vertices);
 		
-		for (int v = 0; v < g.v_max; v++) {
-			if (g.containsVertex[v]) {
-				for (int i = 0; i < edges[v].size(); i++) {
-					g_rev.addEdge(edges[v].get(i), v, g.weights[v][edges[v].get(i)]);
-				}
+		for (int v : g.vertices) {
+			for (int i = 0; i < edges[v].size(); i++) {
+				g_rev.addEdge(edges[v].get(i), v, g.weights[v][edges[v].get(i)]);
 			}
 		}
 		
