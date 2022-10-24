@@ -1,6 +1,7 @@
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.PriorityQueue;
 import java.util.Stack;
 
 public class NegativeWeightSSSP {
@@ -69,19 +70,21 @@ public class NegativeWeightSSSP {
 //	    }
 	}
 	
-//	1. INPUT REQUIREMENTS:
-//		(a) B is positive integer, w is integral, and w(e) ≥ −2B for all e ∈ E
-//		(b) If the graph G does not contain a negative-weight cycle then the input 
-//			must satisfy η(GB) ≤ ∆; that is, for every v ∈ V there is a shortest 
-//			sv-path in GBs with at most ∆ negative edges
-//		(c) All vertices in G have constant out-degree
-//	2. OUTPUT: If it terminates, the algorithm returns an integral price function φ 
-//		such that wφ(e) ≥ −B for all e ∈ E
-//	3. RUNNING TIME: If G does not contain a negative-weight cycle, then the 
-//		algorithm has epected runtime O(m log3(n) log(∆)). 
-//		Remark: If G contains a negative-weight cycle, there is no guarantee 
-//		on the runtime, and the algorithm might not even terminate; but if the 
-//		algorithm does terminate, it always produces a correct output.
+	/*
+	 * 1. INPUT REQUIREMENTS:
+	 * (a) B is positive integer, w is integral, and w(e) ≥ −2B for all e ∈ E
+	 * (b) If the graph G does not contain a negative-weight cycle then the input 
+	 * 		must satisfy η(GB) ≤ ∆; that is, for every v ∈ V there is a shortest 
+	 * 		sv-path in GBs with at most ∆ negative edges
+	 * (c) All vertices in G have constant out-degree
+	 * 2. OUTPUT: If it terminates, the algorithm returns an integral price function φ 
+	 * 	such that wφ(e) ≥ −B for all e ∈ E
+	 * 3. RUNNING TIME: If G does not contain a negative-weight cycle, then the 
+	 * 	algorithm has epected runtime O(m log3(n) log(∆)). 
+	 * 	Remark: If G contains a negative-weight cycle, there is no guarantee 
+	 * 	on the runtime, and the algorithm might not even terminate; but if the 
+	 * 	algorithm does terminate, it always produces a correct output.
+	 */
 	public static HashMap<Integer, Integer> ScaleDown(Graph g, int delta, int B) throws Exception {
 		// if phi(x) == null, assume that phi(x) = 0
 		HashMap<Integer, Integer> phi_2 = new HashMap<Integer, Integer>();
@@ -124,7 +127,7 @@ public class NegativeWeightSSSP {
 	 * Removes all the edges in remEdges.
 	 */
 	public static Graph createModifiedGB(Graph g, int B, boolean nneg, HashSet<int[]> remEdges, HashMap<Integer, Integer> phi) throws Exception {
-		Graph modG = new Graph(g.n, false);
+		Graph modG = new Graph(g.v_max, false);
 		modG.addVertices(g.vertices);
 		
 		for (int u : g.vertices) {
@@ -293,7 +296,76 @@ public class NegativeWeightSSSP {
 	}
 	
 	
-	public static HashMap<Integer, Integer> ElimNeg(Graph g) {
-		return null;
+	/*
+	 * ElimNeg takes as input a graph G = (V,E,w) in which all vertices have constant out-degree. 
+	 * The algorithm outputs a price function φ such that w_φ(e) ≥ 0 for all e ∈ E 
+	 * and has running time O(log(n)*(n + sum_v∈V ηG(v))); 
+	 * note that if G contains a negative-weight cycle then v∈V ηG(v) = ∞ 
+	 * so the algorithm will never terminate and hence not produce any output.
+	 */
+	public static HashMap<Integer, Integer> ElimNeg(Graph g) throws Exception {
+		Graph Gs = createGs(g);
+		int[] dist = new int[Gs.v_max];
+		int s = Gs.v_max - 1;
+		dist[s] = 0;
+		for (int v = 0; v < s; v++) {
+			dist[v] = Integer.MAX_VALUE;
+		}
+		PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
+		pq.add(new Node(s, dist[s]));
+		HashSet<Integer> marked = new HashSet<Integer>();
+		
+		while (!pq.isEmpty()) {
+			// Dijkstra Phase
+			while (!pq.isEmpty()) {
+				int v = pq.remove().node;
+				marked.add(v);
+				
+				for (int x : g.adjacencyList[v]) {
+					if (g.weights[v][x] >= 0 && (dist[v] + g.weights[v][x] < dist[x])) {
+						marked.add(v);
+						pq.add(new Node(x, dist[x]));
+						dist[x] = dist[v] + (int) g.weights[v][x];
+					}
+				}
+			}
+			
+			// Bellman-Ford Phase
+			for (int v : marked) {
+				for (int x : g.adjacencyList[v]) {
+					if (g.weights[v][x] < 0 && (dist[v] + g.weights[v][x] < dist[x])) {
+						dist[x] = dist[v] + (int) g.weights[v][x];
+						pq.add(new Node(x, dist[x]));
+					}
+				}
+				marked.remove(v);
+			}
+		}
+		
+		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		for (int v : g.vertices) {
+			phi.put(v, dist[v]);
+		}
+		return phi;
+	}
+	
+	/*
+	 * Returns the graph that is g with an added dummy vertex s 
+	 * and edges of weight 0 connecting s to every vertex in G.
+	 */
+	public static Graph createGs(Graph g) throws Exception {
+		int s = g.v_max;
+		Graph Gs = new Graph(g.v_max + 1, false);
+		Gs.addVertices(g.vertices);
+		Gs.addVertex(s);
+		
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				Gs.addEdge(u, v, g.weights[u][v]);
+			}
+			Gs.addEdge(s, u, 0);
+		}
+		
+		return Gs;
 	}
 }
