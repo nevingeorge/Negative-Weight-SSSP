@@ -60,16 +60,16 @@ public class LowDiameterDecomposition {
 		
 		if (condAndi_max[0] == 2) {
 			ArrayList<Integer> ball = volume(g, s, i_rnd);
-			Graph subGraph = NegativeWeightSSSP.getSubgraph(g, ball, false);
-			Graph minusSubGraph = NegativeWeightSSSP.getSubgraph(g, ball, true);
+			Graph subGraph = getSubgraph(g, ball, false);
+			Graph minusSubGraph = getSubgraph(g, ball, true);
 			
 			return edgeUnion(layer(g, ball), LDD(subGraph, d), LDD(minusSubGraph, d));
 		}
 		
 		if (condAndi_max[0] == 3) {
 			ArrayList<Integer> ball = volume(g_rev, s, i_rnd);
-			Graph subGraph = NegativeWeightSSSP.getSubgraph(g_rev, ball, false);	
-			Graph minusSubGraph = NegativeWeightSSSP.getSubgraph(g_rev, ball, true);
+			Graph subGraph = getSubgraph(g_rev, ball, false);	
+			Graph minusSubGraph = getSubgraph(g_rev, ball, true);
 			
 			return revEdges(edgeUnion(layer(g_rev, ball), LDD(subGraph, d), LDD(minusSubGraph, d)));
 		}
@@ -134,15 +134,15 @@ public class LowDiameterDecomposition {
 			int i_rnd = i_min + Math.min(GeometricSampler.of(RandomSource.MT.create(), calculateGeoProb(g.n, r)).sample(), r);
 			
 			if (dist[v] > 2 * d) {
-				Graph gVMinusM = NegativeWeightSSSP.getSubgraph(g, m, true);
+				Graph gVMinusM = getSubgraph(g, m, true);
 				ArrayList<Integer> ball = volume(gVMinusM, v, i_rnd);
-				Graph GVMinusMSubGraph = NegativeWeightSSSP.getSubgraph(gVMinusM, ball, false);
+				Graph GVMinusMSubGraph = getSubgraph(gVMinusM, ball, false);
 				e_sep = edgeUnion(e_sep, layer(gVMinusM, ball), LDD(GVMinusMSubGraph, d));
 				m = vertexUnion(m, ball);
 			} else if (dist_rev[v] > 2 * d) {
-				Graph gVMinusM_rev = NegativeWeightSSSP.getSubgraph(g_rev, m, true);
+				Graph gVMinusM_rev = getSubgraph(g_rev, m, true);
 				ArrayList<Integer> ball_rev = volume(gVMinusM_rev, v, i_rnd);
-				Graph GVMinusMSubGraph_rev = NegativeWeightSSSP.getSubgraph(gVMinusM_rev, ball_rev, false);
+				Graph GVMinusMSubGraph_rev = getSubgraph(gVMinusM_rev, ball_rev, false);
 				e_sep = edgeUnion(e_sep, revEdges(layer(gVMinusM_rev, ball_rev)), revEdges(LDD(GVMinusMSubGraph_rev, d)));
 				m = vertexUnion(m, ball_rev);
 			} else {
@@ -153,6 +153,39 @@ public class LowDiameterDecomposition {
 		}
 		
 		return e_sep;
+	}
+	
+	// returns the subgraph of g containing only the vertices in ball
+	// if setMinus is true, the function returns the subgraph of g containing only the vertices outside of the ball
+	public static Graph getSubgraph(Graph g, ArrayList<Integer> ball, boolean setMinus) throws Exception {
+		boolean[] contains = new boolean[g.v_max];
+		for (int i = 0; i < ball.size(); i++) {
+			contains[ball.get(i)] = true;
+		}
+		
+		ArrayList<Integer> vert = new ArrayList<Integer>();
+		for (int v : g.vertices) {
+			if (!setMinus && contains[v]) {
+				vert.add(v);
+			} else if (setMinus && !contains[v]) {
+				vert.add(v);
+			}
+		}
+		
+		Graph subGraph = new Graph(g.v_max, false);
+		subGraph.addVertices(vert);
+		
+		for (int u : vert) {
+			ArrayList<Integer> edgesU = g.adjacencyList[u];
+			
+			for (int v : edgesU) {
+				if (subGraph.containsVertex[v]) {
+					subGraph.addEdge(u, v, g.weights[u][v]);
+				}
+			}
+		}
+		
+		return subGraph;
 	}
 	
 	// returns the union of two vertex sets

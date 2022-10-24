@@ -296,37 +296,4 @@ public class NegativeWeightSSSP {
 	public static HashMap<Integer, Integer> ElimNeg(Graph g) {
 		return null;
 	}
-	
-	// returns the subgraph of g containing only the vertices in ball
-	// if setMinus is true, the function returns the subgraph of g containing only the vertices outside of the ball
-	public static Graph getSubgraph(Graph g, ArrayList<Integer> ball, boolean setMinus) throws Exception {
-		boolean[] contains = new boolean[g.v_max];
-		for (int i = 0; i < ball.size(); i++) {
-			contains[ball.get(i)] = true;
-		}
-		
-		ArrayList<Integer> vert = new ArrayList<Integer>();
-		for (int v : g.vertices) {
-			if (!setMinus && contains[v]) {
-				vert.add(v);
-			} else if (setMinus && !contains[v]) {
-				vert.add(v);
-			}
-		}
-		
-		Graph subGraph = new Graph(g.v_max, false);
-		subGraph.addVertices(vert);
-		
-		for (int u : vert) {
-			ArrayList<Integer> edgesU = g.adjacencyList[u];
-			
-			for (int v : edgesU) {
-				if (subGraph.containsVertex[v]) {
-					subGraph.addEdge(u, v, g.weights[u][v]);
-				}
-			}
-		}
-		
-		return subGraph;
-	}
 }
