@@ -92,7 +92,7 @@ public class LowDiameterDecomposition {
 	
 	
 	public static double calculateGeoProb(int n, int r) {
-		double c = Math.pow(n, -1);
+		double c = Math.pow(Math.log(n), -1);
 		double prob = 2 * c * Math.log(n) / (double) r;
 		if (prob > 1) {
 			System.out.println("Geometric probability was more than 1 (set to 1).");
