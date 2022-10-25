@@ -102,7 +102,7 @@ public class NegativeWeightSSSP {
 		// create G^*
 		for (int u : g.vertices) {
 			for (int v : g.adjacencyList[u]) {
-				g.weights[u][v] += phi.get(v) - phi.get(u) + 1;
+				g.weights[u][v] += phi.get(u) - phi.get(v) + 1;
 			}
 		}
 		
@@ -299,7 +299,6 @@ public class NegativeWeightSSSP {
 		
 		return SCCAdjList;
 	}
-	
 	
 	/*
 	 * Input: DAG
