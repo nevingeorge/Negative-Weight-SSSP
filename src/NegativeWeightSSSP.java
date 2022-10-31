@@ -2,6 +2,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.Stack;
 
 public class NegativeWeightSSSP {
@@ -79,11 +80,11 @@ public class NegativeWeightSSSP {
 		int[] tree = SPmain(g, 0);
 		
 		for (int i = 0; i < 6; i++) {
-			System.out.println("Vertex " + i + ": " + tree[i]);
+			System.out.println("Parent of vertex " + i + ": " + tree[i]);
 		}
 	}
 	
-	// Returns an array containing the distances from s to every vertex in g. 
+	// Returns the shortest path tree in g from s.
 	public static int[] SPmain(Graph g, int s) throws Exception {
 		for (int u : g.vertices) {
 			for (int v : g.adjacencyList[u]) {
@@ -106,7 +107,7 @@ public class NegativeWeightSSSP {
 			}
 		}
 		
-		return LowDiameterDecomposition.Dijkstra(g, s);
+		return getShortestPathTree(g, s);
 	}
 	
 	// rounds n up to the nearest power of 2
@@ -414,5 +415,60 @@ public class NegativeWeightSSSP {
 		}
 		
 		return Gs;
+	}
+	
+	/*
+	 * Let the output be int[] out. 
+	 * For vertex i, out[i] = parent of vertex i in the shortest path tree in g from s.
+	 * out[i] = -1 indicates that vertex i has no parent in the tree.
+	 */
+	public static int[] getShortestPathTree(Graph g, int s) {		
+		Set<Integer> settled = new HashSet<Integer>();
+	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
+		int[] dist = new int[g.v_max];
+		int[] tree = new int[g.v_max];
+		
+		for (int i = 0; i < g.v_max; i++) {
+            dist[i] = Integer.MAX_VALUE;
+            tree[i] = -1;
+        }
+ 
+        pq.add(new Node(s, 0));
+        dist[s] = 0;
+ 
+        while (settled.size() != g.n) {
+            if (pq.isEmpty()) {
+                return tree;
+            }
+
+            int u = pq.remove().node;
+
+            if (settled.contains(u)) {
+                continue;
+            }
+
+            settled.add(u);
+            updateTreeNeighbors(g, u, tree, settled, pq, dist);
+        }
+        
+        return tree;
+	}
+	
+	
+	public static void updateTreeNeighbors(Graph g, int u, int[] tree, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist) {
+		ArrayList<Integer> neighbors = g.adjacencyList[u];
+
+        for (int v : neighbors) {
+            if (!settled.contains(v)) {
+                int newDistance = dist[u] + (int) g.weights[u][v];
+
+                if (newDistance < dist[v]) {
+                    dist[v] = newDistance;
+                    tree[v] = u;
+                }
+                
+                pq.add(new Node(v, dist[v]));
+            }
+        }
 	}
 }
