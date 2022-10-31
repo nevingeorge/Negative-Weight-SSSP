@@ -6,6 +6,9 @@ import java.util.Set;
 import java.util.Stack;
 
 public class NegativeWeightSSSP {
+	
+	public static double startTime; // in ms
+	public static final double maxRunTime = 10; // in seconds
 
 	public static void main(String[] args) throws Exception {
 //	    Graph g1 = new Graph(5, true);
@@ -84,8 +87,10 @@ public class NegativeWeightSSSP {
 		}
 	}
 	
-	// Returns the shortest path tree in g from s.
+	// Monte Carlo algorithm that returns the shortest path tree in g from s.
 	public static int[] SPmain(Graph g, int s) throws Exception {
+		startTime = System.currentTimeMillis();
+		
 		for (int u : g.vertices) {
 			for (int v : g.adjacencyList[u]) {
 				g.weights[u][v] *= 2 * g.n;
@@ -135,6 +140,10 @@ public class NegativeWeightSSSP {
 	 * 	algorithm does terminate, it always produces a correct output.
 	 */
 	public static HashMap<Integer, Integer> ScaleDown(Graph g, int delta, int B) throws Exception {
+		if (System.currentTimeMillis() - startTime >= maxRunTime * Math.pow(10, 3)) {
+			throw new Exception("Exceeded total allotted run time.");
+		}
+		
 		// if phi(x) == null, assume that phi(x) = 0
 		HashMap<Integer, Integer> phi_2 = new HashMap<Integer, Integer>();
 		
