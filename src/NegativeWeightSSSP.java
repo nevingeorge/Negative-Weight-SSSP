@@ -80,39 +80,150 @@ public class NegativeWeightSSSP {
 		g.addEdge(3, 4, 1);
 		g.addEdge(4, 5, 1);
 		g.addEdge(5, 0, 1);
-		int[] tree = SPmain(g, 0);
+		int[] tree = SPmain(g, 0, true);
 		
 		for (int i = 0; i < 6; i++) {
 			System.out.println("Parent of vertex " + i + ": " + tree[i]);
 		}
 	}
 	
-	// Monte Carlo algorithm that returns the shortest path tree in g from s.
-	public static int[] SPmain(Graph g, int s) throws Exception {
+	/*
+	 * Monte Carlo algorithm that returns the shortest path tree in g from s.
+	 * The boolean constantOutDegree is false if we wish to ignore the assumption that g has constant out-degree.
+	 */
+	public static int[] SPmain(Graph g, int s, boolean constantOutDegree) throws Exception {
 		startTime = System.currentTimeMillis();
 		
-		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
-				g.weights[u][v] *= 2 * g.n;
+		Graph gOut;
+		if (constantOutDegree) {
+			gOut = constantOutDegree(g);
+		} else {
+			gOut = g;
+		}
+				
+		for (int u : gOut.vertices) {
+			for (int v : gOut.adjacencyList[u]) {
+				gOut.weights[u][v] *= 2 * gOut.n;
 			}
 		}
-		int B = roundPower2(2 * g.n);
+		int B = roundPower2(2 * gOut.n);
 		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
 		
 		for (int i = 1; i <= logBase2(B); i++) {
-			Graph g_phi = createModifiedGB(g, 0, false, new HashSet<int[]>(), phi);
-			HashMap<Integer, Integer> phi_i = ScaleDown(g_phi, g.n, B / (int) Math.pow(2, i));
+			Graph g_phi = createModifiedGB(gOut, 0, false, new HashSet<int[]>(), phi);
+			HashMap<Integer, Integer> phi_i = ScaleDown(g_phi, gOut.n, B / (int) Math.pow(2, i));
 			phi = addPhi(phi, phi_i);
 		}
 		
 		// create G^*
-		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
-				g.weights[u][v] += phi.get(u) - phi.get(v) + 1;
+		for (int u : gOut.vertices) {
+			for (int v : gOut.adjacencyList[u]) {
+				gOut.weights[u][v] += phi.get(u) - phi.get(v) + 1;
 			}
 		}
 		
-		return getShortestPathTree(g, s);
+		int[] tree = getShortestPathTree(gOut, s);
+		if (constantOutDegree) {
+			return treeForInputG(g, s, tree);
+		}
+		return tree;
+	}
+	
+	/*
+	 * Outputs a graph that has constant out degree 2.
+	 * For each vertex v (letting OD mean out degree),
+	 * if OD(v) = 0, add a vertex v'. make a loop between v and v', as well as self-loops for v and v'.
+	 * if OD(v) = 1, add a self-loop.
+	 * if OD(v) >= 2, add OD(v) - 1 vertices. Turn the OD(v) vertices into a cycle.
+	 * Make each of the OD(v) out edges come out of one of the vertices in the cycle.
+	 * Make all of the input edges going into the original vertices.
+	 * All the newly added edges have weight 0.
+	 */
+	public static Graph constantOutDegree(Graph g) throws Exception {
+		int numVertices = 0;
+		int[] indexOfMainVertex = new int[g.n]; // contains the indices of the original vertices in g
+		for (int v = 0; v < g.n; v++) {
+			indexOfMainVertex[v] = numVertices;
+			int outDegree = g.adjacencyList[v].size();
+			if (outDegree == 0) {
+				numVertices += 2;
+			} else {
+				numVertices += outDegree;
+			}
+		}
+		
+		Graph gOut = new Graph(numVertices, true);
+		
+		for (int u = 0; u < g.n; u++) {
+			int outDegree = g.adjacencyList[u].size();
+			if (outDegree == 0) {
+				// self-loops
+				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[u], 0);
+				gOut.addEdge(indexOfMainVertex[u] + 1, indexOfMainVertex[u] + 1, 0);
+				
+				// loop between v and v'
+				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[u] + 1, 0);
+				gOut.addEdge(indexOfMainVertex[u] + 1, indexOfMainVertex[u], 0);
+			} else if (outDegree == 1) {
+				int v = g.adjacencyList[u].get(0);
+				// original edge
+				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[v], 0);
+				
+				// create a self-loop
+				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[u], 0);
+			} else {
+				int i = 0;
+				for (int v : g.adjacencyList[u]) {
+					// edge (u, v) => (u + i, indexOfMainVertex[v]), i in [0, g.adjacencyList[u].size())
+					gOut.addEdge(indexOfMainVertex[u] + i, indexOfMainVertex[v], 0);
+					
+					// create a cycle
+					if (i == outDegree - 1) {
+						gOut.addEdge(indexOfMainVertex[u] + i, indexOfMainVertex[u], 0);
+					} else {
+						gOut.addEdge(indexOfMainVertex[u] + i, indexOfMainVertex[u] + i + 1, 0);
+					}
+					
+					i++;
+				}
+			}
+		}
+		
+		return gOut;
+	}
+	
+	public static int[] treeForInputG(Graph g, int s, int[] tree) {
+		HashMap<Integer, Integer> newVerttoOldVert = new HashMap<Integer, Integer>();
+		int numVertices = 0;
+		HashSet<Integer> originalVertices = new HashSet<Integer>();
+		for (int v = 0; v < g.n; v++) {
+			originalVertices.add(numVertices);
+			int outDegree = g.adjacencyList[v].size();
+			
+			if (outDegree == 0) {
+				newVerttoOldVert.put(numVertices, v);
+				newVerttoOldVert.put(numVertices + 1, v);
+				numVertices += 2;
+			} else {
+				for (int i = 0; i < outDegree; i++) {
+					newVerttoOldVert.put(numVertices + i, v);
+				}
+				numVertices += outDegree;
+			}
+		}
+		
+		int[] treeInputG = new int[g.n];
+		for (int v = 0; v < numVertices; v++) {
+			if (originalVertices.contains(v)) {
+				if (tree[v] == -1) {
+					treeInputG[newVerttoOldVert.get(v)] = -1;
+				} else {
+					treeInputG[newVerttoOldVert.get(v)] = newVerttoOldVert.get(tree[v]);
+				}
+			}
+		}
+		
+		return treeInputG;
 	}
 	
 	// rounds n up to the nearest power of 2
