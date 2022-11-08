@@ -88,45 +88,82 @@ public class NegativeWeightSSSP {
 	}
 	
 	/*
-	 * Monte Carlo algorithm that returns the shortest path tree in g from s.
+	 * Returns the shortest path tree in g from s.
 	 * The boolean constantOutDegree is false if we wish to ignore the assumption that g has constant out-degree.
+	 * Runs the bit scaling algorithm of Goldberg-Rao.
 	 */
-	public static int[] SPmain(Graph g, int s, boolean constantOutDegree) throws Exception {
+	public static int[] bitScaling(Graph g_in, int s, boolean constantOutDegree) {
 		startTime = System.currentTimeMillis();
 		
-		Graph gOut;
+		Graph g;
 		if (constantOutDegree) {
-			gOut = constantOutDegree(g);
+			g = constantOutDegree(g);
 		} else {
-			gOut = g;
+			g = g_in;
 		}
-				
-		for (int u : gOut.vertices) {
-			for (int v : gOut.adjacencyList[u]) {
-				gOut.weights[u][v] *= 2 * gOut.n;
-			}
+		
+		int minWeight = getMinWeight(g);
+		
+		if (minWeight >= 0) {
+			// can run Dijkstra
+			return getShortestPathTree(g_in, s);
 		}
-		int B = roundPower2(2 * gOut.n);
+		
+		int startPrecision = (int) (Math.log(-1 * minWeight) / Math.log(2));
 		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
 		
-		for (int i = 1; i <= logBase2(B); i++) {
-			Graph g_phi = createModifiedGB(gOut, 0, false, new HashSet<int[]>(), phi);
-			HashMap<Integer, Integer> phi_i = ScaleDown(g_phi, gOut.n, B / (int) Math.pow(2, i));
-			phi = addPhi(phi, phi_i);
+		for (int precision = startPrecision; precision >= 0; precision--) {
+			HashMap<Integer, Integer> doublePhi = getDoublePhi(phi);
+			
+			Graph gScaled = getScaledGraph(g, precision);
 		}
 		
 		// create G^*
-		for (int u : gOut.vertices) {
-			for (int v : gOut.adjacencyList[u]) {
-				gOut.weights[u][v] += phi.get(u) - phi.get(v) + 1;
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				g.weights[u][v] += phi.get(u) - phi.get(v) + 1;
 			}
 		}
 		
-		int[] tree = getShortestPathTree(gOut, s);
+		int[] tree = getShortestPathTree(g, s);
 		if (constantOutDegree) {
-			return treeForInputG(g, s, tree);
+			return treeForInputG(g_in, s, tree);
 		}
 		return tree;
+	}
+	
+	// returns the minimum weight of an edge in g
+	public static int getMinWeight(Graph g) {
+		int minWeight = Integer.MAX_VALUE;
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				if (g.weights[u][v] < minWeight) {
+					minWeight = g.weights[u][v];
+				}
+			}
+		}
+		return minWeight;
+	}
+	
+	/*
+	 * Returns a price function that makes all the edges in g nonnegative
+	 */
+	public static HashMap<Integer, Integer> SPmain(Graph g, int s, boolean constantOutDegree) throws Exception {				
+		for (int u : g.vertices) {
+			for (int v : g.adjacencyList[u]) {
+				g.weights[u][v] *= 2 * g.n;
+			}
+		}
+		int B = roundPower2(2 * g.n);
+		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		
+		for (int i = 1; i <= logBase2(B); i++) {
+			Graph g_phi = createModifiedGB(g, 0, false, new HashSet<int[]>(), phi);
+			HashMap<Integer, Integer> phi_i = ScaleDown(g_phi, g.n, B / (int) Math.pow(2, i));
+			phi = addPhi(phi, phi_i);
+		}
+		
+		return phi;
 	}
 	
 	/*
@@ -192,6 +229,7 @@ public class NegativeWeightSSSP {
 		return gOut;
 	}
 	
+	// converts the tree for gOut into a tree for g_in
 	public static int[] treeForInputG(Graph g, int s, int[] tree) {
 		HashMap<Integer, Integer> newVerttoOldVert = new HashMap<Integer, Integer>();
 		int numVertices = 0;

@@ -15,7 +15,7 @@ public class Graph {
 	int n; // number of vertices
 	ArrayList<Integer>[] adjacencyList; // for 1 <= i <= v_max, contains an integer Arraylist where an element j indicates an edge (i, j)
 	boolean[][] containsEdge;
-	double[][] weights;
+	int[][] weights;
 	
 	// Used for calculating SCCs using Tarjan's Algorithm
 	int time;
@@ -38,7 +38,7 @@ public class Graph {
 		
 		adjacencyList = new ArrayList[numVertices];
 		containsEdge = new boolean[numVertices][numVertices];
-		weights = new double[numVertices][numVertices];
+		weights = new int[numVertices][numVertices];
 		
 		for (int i = 0; i < numVertices; i++) {
 			ArrayList<Integer> initAdjacencyLists = new ArrayList<Integer>();
@@ -74,7 +74,7 @@ public class Graph {
 		}
 	}
 	
-	public void addEdge(int v1, int v2, double w) throws Exception {
+	public void addEdge(int v1, int v2, int w) throws Exception {
 		if (0 <= v1 && v1 < v_max && 0 <= v2 && v2 < v_max 
 				&& containsVertex[v1] && containsVertex[v2] 
 						&& !containsEdge[v1][v2]) {
