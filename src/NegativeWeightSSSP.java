@@ -11,78 +11,15 @@ public class NegativeWeightSSSP {
 	public static final double maxRunTime = 10; // in seconds
 
 	public static void main(String[] args) throws Exception {
-//	    Graph g1 = new Graph(5, true);
-//	 
-//	    g1.addEdge(1, 0, 1);
-//	    g1.addEdge(0, 2, 1);
-//	    g1.addEdge(2, 1, 1);
-//	    g1.addEdge(0, 3, 1);
-//	    g1.addEdge(3, 4, 1);
-//	    System.out.println("SCC in first graph ");
-//	    ArrayList<ArrayList<Integer>> out1 = g1.SCC();
-//	    for (ArrayList<Integer> v : out1) {
-//	    	for (int u : v) {
-//	    		System.out.print(u + " ");
-//	    	}
-//	    	System.out.println();
-//	    }
-//	    
-////	    ArrayList<int[]> edges = LowDiameterDecomposition.LDD(g1, 0);
-////		
-////		for (int[] edge : edges) {
-////			System.out.println(edge[0] + " " + edge[1]);
-////		}
-//	 
-//	    Graph g2 = new Graph(4, true);
-//	    g2.addEdge(0, 1, 1);
-//	    g2.addEdge(1, 2, 1);
-//	    g2.addEdge(2, 3, 1);
-//	    System.out.println("\nSCC in second graph ");
-//	    ArrayList<ArrayList<Integer>> out2 = g2.SCC();
-//	    for (ArrayList<Integer> v : out2) {
-//	    	for (int u : v) {
-//	    		System.out.print(u + " ");
-//	    	}
-//	    	System.out.println();
-//	    }
-//	    
-//	    Graph g4 = new Graph(11, true);
-//	    g4.addEdge(0, 1, 1);
-//	    g4.addEdge(0, 3, 1);
-//	    g4.addEdge(1, 2, 1);
-//	    g4.addEdge(1, 4, 1);
-//	    g4.addEdge(2, 0, 1);
-//	    g4.addEdge(2, 6, 1);
-//	    g4.addEdge(3, 2, 1);
-//	    g4.addEdge(4, 5, 1);
-//	    g4.addEdge(4, 6, 1);
-//	    g4.addEdge(5, 6, 1);
-//	    g4.addEdge(5, 7, 1);
-//	    g4.addEdge(5, 8, 1);
-//	    g4.addEdge(5, 9, 1);
-//	    g4.addEdge(6, 4, 1);
-//	    g4.addEdge(7, 9, 1);
-//	    g4.addEdge(8, 9, 1);
-//	    g4.addEdge(9, 8, 1);
-//	    System.out.println("\nSCC in fourth graph ");
-//	    ArrayList<ArrayList<Integer>> out4 = g4.SCC();
-//	    for (ArrayList<Integer> v : out4) {
-//	    	for (int u : v) {
-//	    		System.out.print(u + " ");
-//	    	}
-//	    	System.out.println();
-//	    }
+		Graph g = new Graph(5, true);
+		g.addEdge(0, 1, 2);
+		g.addEdge(1, 2, 2);
+		g.addEdge(0, 3, 2);
+		g.addEdge(3, 4, -1);
+		g.addEdge(4, 2, 2);
+		int[] tree = SPmain(g, 0, false);
 		
-		Graph g = new Graph(6, true);
-		g.addEdge(0, 1, 1);
-		g.addEdge(1, 2, 1);
-		g.addEdge(2, 3, 1);
-		g.addEdge(3, 4, 1);
-		g.addEdge(4, 5, 1);
-		g.addEdge(5, 0, 1);
-		int[] tree = SPmain(g, 0, true);
-		
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < 5; i++) {
 			System.out.println("Parent of vertex " + i + ": " + tree[i]);
 		}
 	}
