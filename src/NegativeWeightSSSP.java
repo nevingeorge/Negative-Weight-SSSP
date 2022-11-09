@@ -88,7 +88,7 @@ public class NegativeWeightSSSP {
 	}
 	
 	/*
-	 * Monte Carlo algorithm that returns the shortest path tree in g from s.
+	 * Returns the shortest path tree in g from s.
 	 * The boolean constantOutDegree is false if we wish to ignore the assumption that g has constant out-degree.
 	 */
 	public static int[] SPmain(Graph g, int s, boolean constantOutDegree) throws Exception {
@@ -192,6 +192,7 @@ public class NegativeWeightSSSP {
 		return gOut;
 	}
 	
+	// converts the tree for gOut into a tree for g_in
 	public static int[] treeForInputG(Graph g, int s, int[] tree) {
 		HashMap<Integer, Integer> newVerttoOldVert = new HashMap<Integer, Integer>();
 		int numVertices = 0;
@@ -303,7 +304,7 @@ public class NegativeWeightSSSP {
 			for (int v : g.adjacencyList[u]) {
 				int[] edge = {u, v};
 				if (!remEdges.contains(edge)) {
-					double weight = g.weights[u][v];
+					int weight = g.weights[u][v];
 					
 					if (weight < 0) {
 						weight += B;
