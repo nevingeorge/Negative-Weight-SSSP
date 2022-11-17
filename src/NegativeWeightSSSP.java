@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Set;
@@ -85,7 +84,7 @@ public class NegativeWeightSSSP {
 		}
 		
 		int precision = (int) Math.pow(2, (int) logBase2(-1 * minWeight));
-		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		int[] phi = new int[g.v_max];
 		
 		while (precision >= 1) {
 			Graph gScaledS = new Graph(g.n + 1, true); // scaled graph with added dummy source vertex s
@@ -96,21 +95,12 @@ public class NegativeWeightSSSP {
 				int[] weights = new int[numOutEdges];
 				
 				for (int i = 0; i < numOutEdges; i++) {
-					int v = g.adjacencyList[u][i];
-					int phiEdgeValue = 0;
-					if (phi.containsKey(u)) {
-						phiEdgeValue += phi.get(u);
-					} 
-					if (phi.containsKey(v)) {
-						phiEdgeValue -= phi.get(v);
-					}
-					
-					int roundedWeight = phiEdgeValue + (int) Math.ceil(g.weights[u][i] / precision);
+					int roundedWeight = phi[u] - phi[g.adjacencyList[u][i]] + (int) Math.ceil(g.weights[u][i] / precision);
 					if (roundedWeight < -1) {
 						throw new Exception("Bit scaling produced an edge of weight less than -1.");
 					}
 					
-					edges[i] = v;
+					edges[i] = g.adjacencyList[u][i];
 					weights[i] = roundedWeight;
 				}
 				
@@ -133,15 +123,10 @@ public class NegativeWeightSSSP {
 			
 			for (int u: g.vertices) {
 				// add then multiply by 2
-				int phiValue = 0;
-				if (phi.containsKey(u)) {
-					phiValue = phi.get(u);
-				} 
-				
 				if (precision == 1) {
-					phi.put(u, phiValue + dist[u]);
+					phi[u] += dist[u];
 				} else {
-					phi.put(u, 2 * (phiValue + dist[u]));
+					phi[u] = 2 * (phi[u] + dist[u]);
 				}
 			}
 			
@@ -150,7 +135,7 @@ public class NegativeWeightSSSP {
 		
 		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
-				g.weights[u][i] += phi.get(u) - phi.get(g.adjacencyList[u][i]);
+				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]];
 			}
 		}
 		
@@ -195,18 +180,18 @@ public class NegativeWeightSSSP {
 		g.initNullAdjListElts();
 		
 		int B = roundPower2(2 * g.n);
-		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		int[] phi = new int[g.v_max];
 		
 		for (int i = 1; i <= logBase2(B); i++) {
-			Graph g_phi = createModifiedGB(g, 0, false, new HashSet<int[]>(), phi);
-			HashMap<Integer, Integer> phi_i = ScaleDown(g_phi, g.n, B / (int) Math.pow(2, i));
+			Graph g_phi = createModifiedGB(g, 0, false, null, phi);
+			int[] phi_i = ScaleDown(g_phi, g.n, B / (int) Math.pow(2, i));
 			phi = addPhi(phi, phi_i);
 		}
 		
 		// create G^*
 		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
-				g.weights[u][i] += phi.get(u) - phi.get(g.adjacencyList[u][i]) + 1;
+				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]] + 1;
 			}
 		}
 		
@@ -304,7 +289,7 @@ public class NegativeWeightSSSP {
 	
 	// converts the tree for gOut into a tree for g_in
 	public static int[] treeForInputG(Graph g, int s, int[] tree) {
-		HashMap<Integer, Integer> newVerttoOldVert = new HashMap<Integer, Integer>();
+		int[] newVerttoOldVert = new int[g.v_max];
 		int numVertices = 0;
 		HashSet<Integer> originalVertices = new HashSet<Integer>();
 		for (int v = 0; v < g.n; v++) {
@@ -312,12 +297,12 @@ public class NegativeWeightSSSP {
 			int outDegree = g.adjacencyList[v].length;
 			
 			if (outDegree == 0) {
-				newVerttoOldVert.put(numVertices, v);
-				newVerttoOldVert.put(numVertices + 1, v);
+				newVerttoOldVert[numVertices] = v;
+				newVerttoOldVert[numVertices + 1] = v;
 				numVertices += 2;
 			} else {
 				for (int i = 0; i < outDegree; i++) {
-					newVerttoOldVert.put(numVertices + i, v);
+					newVerttoOldVert[numVertices + i] = v;
 				}
 				numVertices += outDegree;
 			}
@@ -327,9 +312,9 @@ public class NegativeWeightSSSP {
 		for (int v = 0; v < numVertices; v++) {
 			if (originalVertices.contains(v)) {
 				if (tree[v] == -1) {
-					treeInputG[newVerttoOldVert.get(v)] = -1;
+					treeInputG[newVerttoOldVert[v]] = -1;
 				} else {
-					treeInputG[newVerttoOldVert.get(v)] = newVerttoOldVert.get(tree[v]);
+					treeInputG[newVerttoOldVert[v]] = newVerttoOldVert[tree[v]];
 				}
 			}
 		}
@@ -361,40 +346,40 @@ public class NegativeWeightSSSP {
 	 * 	on the runtime, and the algorithm might not even terminate; but if the 
 	 * 	algorithm does terminate, it always produces a correct output.
 	 */
-	public static HashMap<Integer, Integer> ScaleDown(Graph g, int delta, int B) throws Exception {
+	public static int[] ScaleDown(Graph g, int delta, int B) throws Exception {
 		if (System.currentTimeMillis() - startTime >= maxRunTime * Math.pow(10, 3)) {
 			throw new Exception("Exceeded total allotted run time.");
 		}
 		
 		// if phi(x) == null, assume that phi(x) = 0
-		HashMap<Integer, Integer> phi_2 = new HashMap<Integer, Integer>();
+		int[] phi_2 = new int[g.v_max];
 		
 		if (delta > 2) { // base case
 			double d = delta / 2.0;
-			Graph g_B_nneg = createModifiedGB(g, B, true, new HashSet<int[]>(), new HashMap<Integer, Integer>());
+			Graph g_B_nneg = createModifiedGB(g, B, true, null, null);
 			
 			// phase 0
 			ArrayList<int[]> E_sep = LowDiameterDecomposition.LDD(g_B_nneg, (int) (d * B));
 			HashSet<int[]> E_sep_hash = new HashSet<int[]>(E_sep);
-			Graph g_B_Esep = createModifiedGB(g, B, false, E_sep_hash, new HashMap<Integer, Integer>());
+			Graph g_B_Esep = createModifiedGB(g, B, false, E_sep_hash, null);
 			ArrayList<ArrayList<Integer>> SCCs = g_B_Esep.SCC();
 			
 			// phase 1
-			HashMap<Integer, Integer> vertexToSCCMap = getVertexToSCCMap(SCCs);
+			int[] vertexToSCCMap = getVertexToSCCMap(SCCs, g.v_max);
 			HashSet<int[]> edgesBetweenSCCs = getEdgesBetweenSCCs(g, vertexToSCCMap);
-			Graph H = createModifiedGB(g, 0, false, edgesBetweenSCCs, new HashMap<Integer, Integer>());
-			HashMap<Integer, Integer> phi_1 = ScaleDown(H, delta / 2, B);
+			Graph H = createModifiedGB(g, 0, false, edgesBetweenSCCs, null);
+			int[] phi_1 = ScaleDown(H, delta / 2, B);
 			
 			// phase 2
 			Graph g_B_E_sep_phi1 = createModifiedGB(g, B, false, E_sep_hash, phi_1);
-			HashMap<Integer, Integer> phi = FixDAGEdges(g_B_E_sep_phi1, SCCs, vertexToSCCMap, edgesBetweenSCCs);
+			int[] phi = FixDAGEdges(g_B_E_sep_phi1, SCCs, vertexToSCCMap, edgesBetweenSCCs);
 			phi_2 = addPhi(phi_1, phi);
 		}
 		
 		// phase 3
-		Graph g_B_phi2 = createModifiedGB(g, B, false, new HashSet<int[]>(), phi_2);
-		HashMap<Integer, Integer> phi_prime = ElimNeg(g_B_phi2);
-		HashMap<Integer, Integer> phi_3 = addPhi(phi_2, phi_prime);
+		Graph g_B_phi2 = createModifiedGB(g, B, false, null, phi_2);
+		int[] phi_prime = ElimNeg(g_B_phi2);
+		int[] phi_3 = addPhi(phi_2, phi_prime);
 		
 		return phi_3;
 	}
@@ -406,7 +391,7 @@ public class NegativeWeightSSSP {
 	 * If nneg == true, w(e) = max{0, w^B(e)}.
 	 * Removes all the edges in remEdges.
 	 */
-	public static Graph createModifiedGB(Graph g, int B, boolean nneg, HashSet<int[]> remEdges, HashMap<Integer, Integer> phi) throws Exception {
+	public static Graph createModifiedGB(Graph g, int B, boolean nneg, HashSet<int[]> remEdges, int[] phi) throws Exception {
 		Graph modG = new Graph(g.v_max, false);
 		modG.addVertices(g.vertices);
 		
@@ -418,7 +403,7 @@ public class NegativeWeightSSSP {
 				int v = g.adjacencyList[u][i];
 				
 				int[] edge = {u, v};
-				if (!remEdges.contains(edge)) {
+				if ((remEdges == null) || !remEdges.contains(edge)) {
 					int weight = g.weights[u][i];
 					
 					if (weight < 0) {
@@ -429,11 +414,8 @@ public class NegativeWeightSSSP {
 						weight = Math.max(0, weight);
 					}
 					
-					if (phi.get(u) != null) {
-						weight += phi.get(u);
-					}
-					if (phi.get(v) != null) {
-						weight -= phi.get(v);
+					if (phi != null) {
+						weight += phi[u] - phi[v];
 					}
 					
 					edges[i] = v;
@@ -448,11 +430,11 @@ public class NegativeWeightSSSP {
 		return modG;
 	}	
 	
-	public static HashSet<int[]> getEdgesBetweenSCCs(Graph g, HashMap<Integer, Integer> vertexToSCCMap) {
+	public static HashSet<int[]> getEdgesBetweenSCCs(Graph g, int[] vertexToSCCMap) {
 		HashSet<int[]> edgesBetweenSCCs = new HashSet<int[]>();
 		for (int u : g.vertices) {
 			for (int v : g.adjacencyList[u]) {
-				if (vertexToSCCMap.get(u) != vertexToSCCMap.get(v)) {
+				if (vertexToSCCMap[u] != vertexToSCCMap[v]) {
 					int[] edge = {u, v};
 					edgesBetweenSCCs.add(edge);
 				}
@@ -462,62 +444,57 @@ public class NegativeWeightSSSP {
 		return edgesBetweenSCCs;
 	}
 	
-	public static HashMap<Integer, Integer> getVertexToSCCMap(ArrayList<ArrayList<Integer>> SCCs) {
-		HashMap<Integer, Integer> vertexToSCCMap = new HashMap<Integer, Integer>();
+	public static int[] getVertexToSCCMap(ArrayList<ArrayList<Integer>> SCCs, int numVertices) {
+		int[] vertexToSCCMap = new int[numVertices];
 		for (int i = 0; i < SCCs.size(); i++) {
 			for (int v : SCCs.get(i)) {
-				vertexToSCCMap.put(v, i);
+				vertexToSCCMap[v] = i;
 			}
 		}
 		
 		return vertexToSCCMap;
 	}
 
-	public static HashMap<Integer, Integer> addPhi(HashMap<Integer, Integer> phi_1, HashMap<Integer, Integer> phi_2) {
-		HashMap<Integer, Integer> newPhi = new HashMap<Integer, Integer>();
-		
-		for (int v : phi_1.keySet()) {
-			if (phi_2.containsKey(v)) {
-				newPhi.put(v, phi_1.get(v) + phi_2.get(v));
-			} else {
-				newPhi.put(v, phi_1.get(v));
-			}
+	public static int[] addPhi(int[] phi_1, int[] phi_2) throws Exception {
+		int len = phi_1.length;
+		if (len != phi_2. length) {
+			throw new Exception("Trying to add phi's of different lengths.");
 		}
 		
-		for (int v : phi_2.keySet()) {
-			if (!newPhi.containsKey(v)) {
-				// phi_1 does not contain v
-				newPhi.put(v, phi_2.get(v));
-			}
+		int[] newPhi = new int[len];
+		
+		for (int i = 0; i < len; i++) {
+			newPhi[i] = phi_1[i] + phi_2[i];
 		}
 		
 		return newPhi;
 	}
 	
-	public static HashMap<Integer, Integer> FixDAGEdges(Graph g, ArrayList<ArrayList<Integer>> SCCs, HashMap<Integer, Integer> vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
-		HashMap<Integer, Integer> topOrdering = topSort(SCCs.size(), createSCCAdjList(SCCs, vertexToSCCMap, edgesBetweenSCCs));
+	public static int[] FixDAGEdges(Graph g, ArrayList<ArrayList<Integer>> SCCs, int[] vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
+		int n = SCCs.size();
+		int[] topOrdering = topSort(n, createSCCAdjList(SCCs, vertexToSCCMap, edgesBetweenSCCs));
 		
-		int[] mu = new int[SCCs.size()]; // indices are in topological order (e.g., index 0 corresponds to the first SCC in topological order)
+		int[] mu = new int[n]; // indices are in topological order (e.g., index 0 corresponds to the first SCC in topological order)
 		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
 				int v = g.adjacencyList[u][i];
 				
-				int SCCu = vertexToSCCMap.get(u);
-				int SCCv = vertexToSCCMap.get(v);
+				int SCCu = vertexToSCCMap[u];
+				int SCCv = vertexToSCCMap[v];
 				int edgeWeight = g.weights[u][i];
 				
-				if ((SCCu != SCCv) && edgeWeight < mu[topOrdering.get(SCCv)]) {
-					mu[topOrdering.get(SCCv)] = edgeWeight;
+				if ((SCCu != SCCv) && edgeWeight < mu[topOrdering[SCCv]]) {
+					mu[topOrdering[SCCv]] = edgeWeight;
 				}
 			}
 		}
 		
-		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		int[] phi = new int[g.v_max];
 		int m = 0;
-		for (int j = 1; j < SCCs.size(); j++) {
+		for (int j = 1; j < n; j++) {
 			m += mu[j];
-			for (int v : SCCs.get(topOrdering.get(-1 * j - 1))) {
-				phi.put(v, m);
+			for (int v : SCCs.get(topOrdering[j + n])) {
+				phi[v] = m;
 			}
 		}
 		
@@ -525,7 +502,7 @@ public class NegativeWeightSSSP {
 	}
 	
 	// returns the adjacency list for the DAG where every SCC is viewed as a single vertex
-	public static ArrayList<Integer>[] createSCCAdjList(ArrayList<ArrayList<Integer>> SCCs, HashMap<Integer, Integer> vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
+	public static ArrayList<Integer>[] createSCCAdjList(ArrayList<ArrayList<Integer>> SCCs, int[] vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
 		@SuppressWarnings("unchecked")
 		ArrayList<Integer>[] SCCAdjList = new ArrayList[SCCs.size()];
 		for (int i = 0; i < SCCs.size(); i++) {
@@ -534,8 +511,8 @@ public class NegativeWeightSSSP {
 		boolean[][] containsEdge = new boolean[SCCs.size()][SCCs.size()];
 		
 		for (int[] edge : edgesBetweenSCCs) {
-			int u = vertexToSCCMap.get(edge[0]);
-			int v = vertexToSCCMap.get(edge[1]);
+			int u = vertexToSCCMap[edge[0]];
+			int v = vertexToSCCMap[edge[1]];
 			if (!containsEdge[u][v]) {
 				containsEdge[u][v] = true;
 				SCCAdjList[u].add(v);
@@ -551,10 +528,10 @@ public class NegativeWeightSSSP {
 	 * Returns a map of vertex v to its index i in the ordering
 	 * The index in the order i is also mapped to the vertex v (bijective mapping);
 	 * however, to prevent duplicate keys, instead of using the key i we use the
-	 * key -1 * i - 1.
+	 * key i + n.
 	 */
-	public static HashMap<Integer, Integer> topSort(int n, ArrayList<Integer>[] adjList) {
-		HashMap<Integer, Integer> topOrdering = new HashMap<Integer, Integer>();
+	public static int[] topSort(int n, ArrayList<Integer>[] adjList) {
+		int[] topOrdering = new int[2 * n];
 		Stack<Integer> stack = new Stack<Integer>();
 		boolean[] visited = new boolean[n];
         
@@ -567,8 +544,8 @@ public class NegativeWeightSSSP {
         int i = 0;
         while (!stack.empty()) {
         	int v = stack.pop();
-        	topOrdering.put(v, i);
-        	topOrdering.put(-1 * i - 1, v);
+        	topOrdering[v] = i;
+        	topOrdering[i + n] = v;
         	i++;
         }
         
@@ -595,7 +572,7 @@ public class NegativeWeightSSSP {
 	 * note that if G contains a negative-weight cycle then v∈V ηG(v) = ∞ 
 	 * so the algorithm will never terminate and hence not produce any output.
 	 */
-	public static HashMap<Integer, Integer> ElimNeg(Graph g) throws Exception {
+	public static int[] ElimNeg(Graph g) throws Exception {
 		Graph Gs = createGs(g);
 		int[] dist = new int[Gs.v_max];
 		int s = Gs.v_max - 1;
@@ -640,9 +617,9 @@ public class NegativeWeightSSSP {
 			marked = new HashSet<Integer>();
 		}
 		
-		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
+		int[] phi = new int[g.v_max];
 		for (int v : g.vertices) {
-			phi.put(v, dist[v]);
+			phi[v] = dist[v];
 		}
 		return phi;
 	}
