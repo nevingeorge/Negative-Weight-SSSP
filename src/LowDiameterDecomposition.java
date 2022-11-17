@@ -93,7 +93,7 @@ public class LowDiameterDecomposition {
 	
 	public static double calculateGeoProb(int n, int r) {
 		double c = Math.pow(Math.log(n), -1);
-		double prob = 2 * c * Math.log(n) / (double) r;
+		double prob = 2 * c * Math.log(n) / ((double) r * Math.log(10));
 		if (prob > 1) {
 			System.out.println("Geometric probability was more than 1 (set to 1).");
 		}
@@ -180,7 +180,7 @@ public class LowDiameterDecomposition {
 			
 			for (int v : edgesU) {
 				if (subGraph.containsVertex[v]) {
-					subGraph.addEdge(u, v, g.weights[u][v]);
+					subGraph.addEdge(u, v, g.weights.get(Graph.edgeToString(u, v)));
 				}
 			}
 		}
@@ -333,7 +333,7 @@ public class LowDiameterDecomposition {
 		
 		for (int v : g.vertices) {
 			for (int i = 0; i < edges[v].size(); i++) {
-				g_rev.addEdge(edges[v].get(i), v, g.weights[v][edges[v].get(i)]);
+				g_rev.addEdge(edges[v].get(i), v, g.weights.get(Graph.edgeToString(v, edges[v].get(i))));
 			}
 		}
 		
@@ -537,7 +537,7 @@ public class LowDiameterDecomposition {
 
         for (int v : neighbors) {
             if (!settled.contains(v)) {
-                int newDistance = dist[u] + (int) g.weights[u][v];
+                int newDistance = dist[u] + g.weights.get(Graph.edgeToString(u, v));
 
                 if (newDistance < dist[v]) {
                     dist[v] = newDistance;

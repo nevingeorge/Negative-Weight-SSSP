@@ -1,4 +1,5 @@
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Stack;
 
 public class Graph {
@@ -14,8 +15,7 @@ public class Graph {
 	
 	int n; // number of vertices
 	ArrayList<Integer>[] adjacencyList; // for 1 <= i <= v_max, contains an integer Arraylist where an element j indicates an edge (i, j)
-	boolean[][] containsEdge;
-	int[][] weights;
+	HashMap<String, Integer> weights; // maps an edge represented as "v1 v2" to its weight
 	
 	// Used for calculating SCCs using Tarjan's Algorithm
 	int time;
@@ -37,8 +37,7 @@ public class Graph {
 		}
 		
 		adjacencyList = new ArrayList[numVertices];
-		containsEdge = new boolean[numVertices][numVertices];
-		weights = new int[numVertices][numVertices];
+		weights = new HashMap<String, Integer>();
 		
 		for (int i = 0; i < numVertices; i++) {
 			ArrayList<Integer> initAdjacencyLists = new ArrayList<Integer>();
@@ -76,25 +75,21 @@ public class Graph {
 	
 	public void addEdge(int v1, int v2, int w) throws Exception {
 		if (0 <= v1 && v1 < v_max && 0 <= v2 && v2 < v_max 
-				&& containsVertex[v1] && containsVertex[v2] 
-						&& !containsEdge[v1][v2]) {
+				&& containsVertex[v1] && containsVertex[v2]) {
 			adjacencyList[v1].add(v2);
-			containsEdge[v1][v2] = true;
-			weights[v1][v2] = w;
+			weights.put(edgeToString(v1, v2), w);
 		} else {
 			throw new Exception("Add edge failed.");
 		}
 	}
 	
-	public void removeEdge(int v1, int v2) throws Exception {
-		if (0 <= v1 && v1 < v_max && 0 <= v2 && v2 < v_max 
-				&& containsVertex[v1] && containsVertex[v2] 
-						&& containsEdge[v1][v2]) {
-			adjacencyList[v1].remove(Integer.valueOf(v2));
-			containsEdge[v1][v2] = false;
-		} else {
-			throw new Exception("Remove edge failed.");
-		}
+	public void updateEdgeWeight(int v1, int v2, int w) {
+		String edge = Graph.edgeToString(v1, v2);
+		weights.put(edge, w);
+	}
+	
+	public static String edgeToString(int v1, int v2) {
+		return Integer.toString(v1) + " " + Integer.toString(v2);
 	}
 	
 	public void displayGraph() {
