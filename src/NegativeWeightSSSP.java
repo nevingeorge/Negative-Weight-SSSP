@@ -1,5 +1,3 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,11 +34,24 @@ public class NegativeWeightSSSP {
 //		}
 
 		Graph g = new Graph(5, true);
-		g.addEdge(0, 1, 2);
-		g.addEdge(1, 2, 2);
-		g.addEdge(0, 3, 2);
-		g.addEdge(3, 4, -2);
-		g.addEdge(4, 2, 2);
+		int[] edges0 = {1, 3};
+		int[] weights0 = {2, 2};
+		g.addEdges(0, edges0, weights0);
+		
+		int[] edges1 = {2};
+		int[] weights1 = {2};
+		g.addEdges(1, edges1, weights1);
+		
+		int[] edges3 = {4};
+		int[] weights3 = {-2};
+		g.addEdges(3, edges3, weights3);
+		
+		int[] edges4 = {2};
+		int[] weights4 = {2};
+		g.addEdges(4, edges4, weights4);
+		
+		g.initNullAdjListElts();
+
 		int[] tree = bitScaling(g, 0, false);
 		
 		for (int i = 0; i < 5; i++) {
@@ -61,8 +72,8 @@ public class NegativeWeightSSSP {
 		
 		int minWeight = Integer.MAX_VALUE;
 		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
-				int weight = g.weights.get(Graph.edgeToString(u, v));
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				int weight = g.weights[u][i];
 				if (weight < minWeight) {
 					minWeight = weight;
 				}
@@ -80,7 +91,12 @@ public class NegativeWeightSSSP {
 			Graph gScaledS = new Graph(g.n + 1, true); // scaled graph with added dummy source vertex s
 			
 			for (int u : g.vertices) {
-				for (int v : g.adjacencyList[u]) {
+				int numOutEdges = g.adjacencyList[u].length;
+				int[] edges = new int[numOutEdges];
+				int[] weights = new int[numOutEdges];
+				
+				for (int i = 0; i < numOutEdges; i++) {
+					int v = g.adjacencyList[u][i];
 					int phiEdgeValue = 0;
 					if (phi.containsKey(u)) {
 						phiEdgeValue += phi.get(u);
@@ -89,19 +105,26 @@ public class NegativeWeightSSSP {
 						phiEdgeValue -= phi.get(v);
 					}
 					
-					double weight = g.weights.get(Graph.edgeToString(u, v));
-					int roundedWeight = phiEdgeValue + (int) Math.ceil(weight / precision);
+					int roundedWeight = phiEdgeValue + (int) Math.ceil(g.weights[u][i] / precision);
 					if (roundedWeight < -1) {
 						throw new Exception("Bit scaling produced an edge of weight less than -1.");
 					}
 					
-					gScaledS.addEdge(u, v, roundedWeight);
+					edges[i] = v;
+					weights[i] = roundedWeight;
 				}
+				
+				gScaledS.addEdges(u, edges, weights);
 			}
 			
-			for (int v = 0; v < g.n; v++) {
-				gScaledS.addEdge(g.n, v, 0);
+			int[] dummyEdges = new int[g.n];
+			int[] dummyWeights = new int[g.n];
+			for (int v = 0; v < g.n; v++) {	
+				dummyEdges[v] = v;
+				dummyWeights[v] = 0;
 			}
+			gScaledS.addEdges(g.n, dummyEdges, dummyWeights);
+			gScaledS.initNullAdjListElts();
 			
 			int[] tree = SPmain(gScaledS, g.n);
 			
@@ -126,9 +149,8 @@ public class NegativeWeightSSSP {
 		}
 		
 		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
-				int initWeight = g.weights.get(Graph.edgeToString(u, v));
-				g.updateEdgeWeight(u, v, initWeight + phi.get(u) - phi.get(v));
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				g.weights[u][i] += phi.get(u) - phi.get(g.adjacencyList[u][i]);
 			}
 		}
 		
@@ -144,10 +166,10 @@ public class NegativeWeightSSSP {
 			dist[curVertex] = curDis;
 			visited[curVertex] = true;
 			
-			for (int v : g.adjacencyList[curVertex]) {
+			for (int i = 0; i < g.adjacencyList[curVertex].length; i++) {
+				int v = g.adjacencyList[curVertex][i];
 				if (tree[v] == curVertex) {
-					int weight = g.weights.get(Graph.edgeToString(curVertex, v));
-					getDistances(g, tree, dist, curDis + weight, v, visited);
+					getDistances(g, tree, dist, curDis + g.weights[curVertex][i], v, visited);
 				}
 			}
 		}
@@ -161,11 +183,17 @@ public class NegativeWeightSSSP {
 		Graph g = new Graph(g_in.n, true);
 		
 		for (int u : g_in.vertices) {
-			for (int v : g_in.adjacencyList[u]) {
-				int initWeight = g_in.weights.get(Graph.edgeToString(u, v));
-				g.addEdge(u, v, initWeight * 2 * g_in.n);
+			int[] edges = new int[g_in.adjacencyList[u].length];
+			int[] weights = new int[g_in.adjacencyList[u].length];
+			
+			for (int i = 0; i < g_in.adjacencyList[u].length; i++) {
+				edges[i] = g_in.adjacencyList[u][i];
+				weights[i] = g_in.weights[u][i] * 2 * g_in.n;
 			}
+			g.addEdges(u, edges, weights);
 		}
+		g.initNullAdjListElts();
+		
 		int B = roundPower2(2 * g.n);
 		HashMap<Integer, Integer> phi = new HashMap<Integer, Integer>();
 		
@@ -177,9 +205,8 @@ public class NegativeWeightSSSP {
 		
 		// create G^*
 		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
-				int initWeight = g.weights.get(Graph.edgeToString(u, v));
-				g.updateEdgeWeight(u, v, initWeight + phi.get(u) - phi.get(v) + 1);
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				g.weights[u][i] += phi.get(u) - phi.get(g.adjacencyList[u][i]) + 1;
 			}
 		}
 		
@@ -201,7 +228,7 @@ public class NegativeWeightSSSP {
 		int[] indexOfMainVertex = new int[g.n]; // contains the indices of the original vertices in g
 		for (int v = 0; v < g.n; v++) {
 			indexOfMainVertex[v] = numVertices;
-			int outDegree = g.adjacencyList[v].size();
+			int outDegree = g.adjacencyList[v].length;
 			if (outDegree == 0) {
 				numVertices += 2;
 			} else {
@@ -212,39 +239,65 @@ public class NegativeWeightSSSP {
 		Graph gOut = new Graph(numVertices, true);
 		
 		for (int u = 0; u < g.n; u++) {
-			int outDegree = g.adjacencyList[u].size();
+			int outDegree = g.adjacencyList[u].length;
+			
 			if (outDegree == 0) {
+				int[] edges0 = new int[2];
+				int[] weights0 = new int[2];
+				int[] edges1 = new int[2];
+				int[] weights1 = new int[2];
+				
 				// self-loops
-				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[u], 0);
-				gOut.addEdge(indexOfMainVertex[u] + 1, indexOfMainVertex[u] + 1, 0);
+				edges0[0] = indexOfMainVertex[u];
+				weights0[0] = 0;
+				edges1[0] = indexOfMainVertex[u] + 1;
+				weights1[0] = 0;
 				
 				// loop between v and v'
-				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[u] + 1, 0);
-				gOut.addEdge(indexOfMainVertex[u] + 1, indexOfMainVertex[u], 0);
-			} else if (outDegree == 1) {
-				int v = g.adjacencyList[u].get(0);
-				// original edge
-				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[v], 0);
+				edges0[1] = indexOfMainVertex[u] + 1;
+				weights0[0] = 0;
+				edges1[1] = indexOfMainVertex[u];
+				weights1[1] = 0;
 				
+				gOut.addEdges(indexOfMainVertex[u], edges0, weights0);
+				gOut.addEdges(indexOfMainVertex[u] + 1, edges1, weights1);
+			} else if (outDegree == 1) {
+				int[] edges = new int[2];
+				int[] weights = new int[2];
+				
+				// original edge
+				edges[0] = g.adjacencyList[u][0];
+				weights[0] = 0;
 				// create a self-loop
-				gOut.addEdge(indexOfMainVertex[u], indexOfMainVertex[u], 0);
+				edges[1] = indexOfMainVertex[u];
+				weights[1] = 0;
+				
+				gOut.addEdges(indexOfMainVertex[u], edges, weights);
 			} else {
 				int i = 0;
 				for (int v : g.adjacencyList[u]) {
-					// edge (u, v) => (u + i, indexOfMainVertex[v]), i in [0, g.adjacencyList[u].size())
-					gOut.addEdge(indexOfMainVertex[u] + i, indexOfMainVertex[v], 0);
+					int[] edges = new int[2];
+					int[] weights = new int[2];
+					
+					// edge (u, v) => (u + i, indexOfMainVertex[v]), i in [0, g.adjacencyList[u].length)
+					edges[0] = indexOfMainVertex[v];
+					weights[0] = 0;
 					
 					// create a cycle
 					if (i == outDegree - 1) {
-						gOut.addEdge(indexOfMainVertex[u] + i, indexOfMainVertex[u], 0);
+						edges[1] = indexOfMainVertex[u];
 					} else {
-						gOut.addEdge(indexOfMainVertex[u] + i, indexOfMainVertex[u] + i + 1, 0);
+						edges[1] = indexOfMainVertex[u] + i + 1;
 					}
+					weights[1] = 0;
+					
+					gOut.addEdges(indexOfMainVertex[u] + i, edges, weights);
 					
 					i++;
 				}
 			}
 		}
+		gOut.initNullAdjListElts();
 		
 		return gOut;
 	}
@@ -256,7 +309,7 @@ public class NegativeWeightSSSP {
 		HashSet<Integer> originalVertices = new HashSet<Integer>();
 		for (int v = 0; v < g.n; v++) {
 			originalVertices.add(numVertices);
-			int outDegree = g.adjacencyList[v].size();
+			int outDegree = g.adjacencyList[v].length;
 			
 			if (outDegree == 0) {
 				newVerttoOldVert.put(numVertices, v);
@@ -358,10 +411,15 @@ public class NegativeWeightSSSP {
 		modG.addVertices(g.vertices);
 		
 		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
+			int[] edges = new int[g.adjacencyList[u].length];
+			int[] weights = new int[g.adjacencyList[u].length];
+			
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				int v = g.adjacencyList[u][i];
+				
 				int[] edge = {u, v};
 				if (!remEdges.contains(edge)) {
-					int weight = g.weights.get(Graph.edgeToString(u, v));
+					int weight = g.weights[u][i];
 					
 					if (weight < 0) {
 						weight += B;
@@ -378,10 +436,14 @@ public class NegativeWeightSSSP {
 						weight -= phi.get(v);
 					}
 					
-					modG.addEdge(u, v, weight);
+					edges[i] = v;
+					weights[i] = weight;
 				}
 			}
+			
+			modG.addEdges(u, edges, weights);
 		}
+		modG.initNullAdjListElts();
 		
 		return modG;
 	}	
@@ -437,10 +499,12 @@ public class NegativeWeightSSSP {
 		
 		int[] mu = new int[SCCs.size()]; // indices are in topological order (e.g., index 0 corresponds to the first SCC in topological order)
 		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				int v = g.adjacencyList[u][i];
+				
 				int SCCu = vertexToSCCMap.get(u);
 				int SCCv = vertexToSCCMap.get(v);
-				int edgeWeight = g.weights.get(Graph.edgeToString(u, v));
+				int edgeWeight = g.weights[u][i];
 				
 				if ((SCCu != SCCv) && edgeWeight < mu[topOrdering.get(SCCv)]) {
 					mu[topOrdering.get(SCCv)] = edgeWeight;
@@ -549,8 +613,9 @@ public class NegativeWeightSSSP {
 				int v = pq.remove().node;
 				marked.add(v);
 				
-				for (int x : Gs.adjacencyList[v]) {
-					int edgeWeight = Gs.weights.get(Graph.edgeToString(v, x));
+				for (int i = 0; i < Gs.adjacencyList[v].length; i++) {
+					int x = Gs.adjacencyList[v][i];
+					int edgeWeight = Gs.weights[v][i];
 					
 					if (edgeWeight >= 0 && (dist[v] + edgeWeight < dist[x])) {
 						marked.add(v);
@@ -562,8 +627,9 @@ public class NegativeWeightSSSP {
 			
 			// Bellman-Ford Phase
 			for (int v : marked) {
-				for (int x : Gs.adjacencyList[v]) {
-					int edgeWeight = Gs.weights.get(Graph.edgeToString(v, x));
+				for (int i = 0; i < Gs.adjacencyList[v].length; i++) {
+					int x = Gs.adjacencyList[v][i];
+					int edgeWeight = Gs.weights[v][i];
 					
 					if (edgeWeight < 0 && (dist[v] + edgeWeight < dist[x])) {
 						dist[x] = dist[v] + edgeWeight;
@@ -592,12 +658,18 @@ public class NegativeWeightSSSP {
 		Gs.addVertex(s);
 		
 		for (int u : g.vertices) {
-			for (int v : g.adjacencyList[u]) {
-				Gs.addEdge(u, v, g.weights.get(Graph.edgeToString(u, v)));
-			}
-			Gs.addEdge(s, u, 0);
+			Gs.addEdges(u, g.adjacencyList[u], g.weights[u]);
 		}
 		
+		int[] edges = new int[g.v_max];
+		int[] weights = new int[g.v_max];
+		for (int i = 0; i < g.v_max; i++) {
+			edges[i] = i;
+			weights[i] = 0;
+		}
+		Gs.addEdges(s, edges, weights);
+		
+		Gs.initNullAdjListElts();
 		return Gs;
 	}
 	
@@ -640,11 +712,11 @@ public class NegativeWeightSSSP {
 	
 	
 	public static void updateTreeNeighbors(Graph g, int u, int[] tree, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist) {
-		ArrayList<Integer> neighbors = g.adjacencyList[u];
-
-        for (int v : neighbors) {
+        for (int i = 0; i < g.adjacencyList[u].length; i++) {
+        	int v = g.adjacencyList[u][i];
+        	
             if (!settled.contains(v)) {
-                int newDistance = dist[u] + g.weights.get(Graph.edgeToString(u, v));
+                int newDistance = dist[u] + g.weights[u][i];
 
                 if (newDistance < dist[v]) {
                     dist[v] = newDistance;

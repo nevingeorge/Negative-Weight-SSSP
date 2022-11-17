@@ -12,26 +12,26 @@ import org.apache.commons.rng.simple.RandomSource;
 public class LowDiameterDecomposition {
 
 	public static void main(String[] args) throws Exception {
-		Graph g = new Graph(12, true);
-		g.addEdge(0, 1, 1);
-	    g.addEdge(1, 2, 1);
-	    g.addEdge(2, 3, 1);
-	    g.addEdge(3, 4, 1);
-	    g.addEdge(4, 5, 1);
-	    g.addEdge(5, 0, 1);
-	    
-	    g.addEdge(6, 7, 1);
-	    g.addEdge(7, 8, 1);
-	    g.addEdge(8, 9, 1);
-	    g.addEdge(9, 10, 1);
-	    g.addEdge(10, 11, 1);
-	    g.addEdge(11, 6, 1);
-		
-		ArrayList<int[]> edges = LDD(g, 6);
-		
-		for (int[] edge : edges) {
-			System.out.println(edge[0] + " " + edge[1]);
-		}
+//		Graph g = new Graph(12, true);
+//		g.addEdge(0, 1, 1);
+//	    g.addEdge(1, 2, 1);
+//	    g.addEdge(2, 3, 1);
+//	    g.addEdge(3, 4, 1);
+//	    g.addEdge(4, 5, 1);
+//	    g.addEdge(5, 0, 1);
+//	    
+//	    g.addEdge(6, 7, 1);
+//	    g.addEdge(7, 8, 1);
+//	    g.addEdge(8, 9, 1);
+//	    g.addEdge(9, 10, 1);
+//	    g.addEdge(10, 11, 1);
+//	    g.addEdge(11, 6, 1);
+//		
+//		ArrayList<int[]> edges = LDD(g, 6);
+//		
+//		for (int[] edge : edges) {
+//			System.out.println(edge[0] + " " + edge[1]);
+//		}
 	}
 	
 	// OUTPUT: A set of edges e_sep with the following guarantees:
@@ -176,14 +176,21 @@ public class LowDiameterDecomposition {
 		subGraph.addVertices(vert);
 		
 		for (int u : vert) {
-			ArrayList<Integer> edgesU = g.adjacencyList[u];
+			ArrayList<Integer> edges = new ArrayList<Integer>();
+			ArrayList<Integer> weights = new ArrayList<Integer>();
 			
-			for (int v : edgesU) {
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				int v = g.adjacencyList[u][i];
+				
 				if (subGraph.containsVertex[v]) {
-					subGraph.addEdge(u, v, g.weights.get(Graph.edgeToString(u, v)));
+					edges.add(v);
+					weights.add(g.weights[u][i]);
 				}
 			}
+			
+			subGraph.addEdges(u, listToArr(edges), listToArr(weights));
 		}
+		subGraph.initNullAdjListElts();
 		
 		return subGraph;
 	}
@@ -325,19 +332,39 @@ public class LowDiameterDecomposition {
 	}	
 	
 	// returns a copy of g but with edges reversed
+	@SuppressWarnings("unchecked")
 	public static Graph createGRev(Graph g) throws Exception {
-		ArrayList<Integer>[] edges = g.adjacencyList;
-		
 		Graph g_rev = new Graph(g.v_max, false);
 		g_rev.addVertices(g.vertices);
 		
+		ArrayList<Integer>[] edges = new ArrayList[g.v_max];
+		ArrayList<Integer>[] weights = new ArrayList[g.v_max];
+		for (int i = 0; i < g.v_max; i++) {
+			edges[i] = new ArrayList<Integer>();
+			weights[i] = new ArrayList<Integer>();
+		}
+		
 		for (int v : g.vertices) {
-			for (int i = 0; i < edges[v].size(); i++) {
-				g_rev.addEdge(edges[v].get(i), v, g.weights.get(Graph.edgeToString(v, edges[v].get(i))));
+			for (int i = 0; i < g.adjacencyList[v].length; i++) {
+				edges[g.adjacencyList[v][i]].add(v);
+				weights[g.adjacencyList[v][i]].add(g.weights[v][i]);
 			}
 		}
 		
+		for (int i = 0; i < g.v_max; i++) {
+			g_rev.addEdges(i, listToArr(edges[i]), listToArr(weights[i]));
+		}
+		g_rev.initNullAdjListElts();
+		
 		return g_rev;
+	}
+	
+	public static int[] listToArr(ArrayList<Integer> list) {
+		int[] arr = new int[list.size()];
+		for (int i = 0; i < list.size(); i++) {
+			arr[i] = list.get(i);
+		}
+		return arr;
 	}
 	
 	//	OUTPUT: a pair (Condition, i) where Condition ∈ {1, 2} and i ≤ D is a non-negative integer such that
@@ -450,9 +477,7 @@ public class LowDiameterDecomposition {
 		ArrayList<int[]> edges = new ArrayList<int[]>();
 		
 		for (int u : ball) {
-			ArrayList<Integer> edgesU = g.adjacencyList[u];
-			
-			for (int v : edgesU) {
+			for (int v : g.adjacencyList[u]) {
 				if (!contains[v]) {
 					int[] edge = {u, v};
 					edges.add(edge);
@@ -533,11 +558,11 @@ public class LowDiameterDecomposition {
 	
 	
 	public static void updateNeighbors(Graph g, int u, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist, int d) {
-		ArrayList<Integer> neighbors = g.adjacencyList[u];
-
-        for (int v : neighbors) {
+        for (int i = 0; i < g.adjacencyList[u].length; i++) {
+        	int v = g.adjacencyList[u][i];
+        	
             if (!settled.contains(v)) {
-                int newDistance = dist[u] + g.weights.get(Graph.edgeToString(u, v));
+                int newDistance = dist[u] + g.weights[u][i];
 
                 if (newDistance < dist[v]) {
                     dist[v] = newDistance;

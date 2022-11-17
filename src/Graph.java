@@ -1,5 +1,4 @@
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Stack;
 
 public class Graph {
@@ -14,13 +13,12 @@ public class Graph {
 	boolean[] containsVertex;
 	
 	int n; // number of vertices
-	ArrayList<Integer>[] adjacencyList; // for 1 <= i <= v_max, contains an integer Arraylist where an element j indicates an edge (i, j)
-	HashMap<String, Integer> weights; // maps an edge represented as "v1 v2" to its weight
+	int[][] adjacencyList; // length v_max, each element int[i][j] indicates an edge (i, int[i][j])
+	int[][] weights; // length v_max, each element int[i][j] is the weight of edge (i, adjacencyList[i][j])
 	
 	// Used for calculating SCCs using Tarjan's Algorithm
 	int time;
 	
-	@SuppressWarnings("unchecked")
 	public Graph(int numVertices, boolean withAllVertices) {
 		v_max = numVertices;
 		vertices = new ArrayList<Integer>();
@@ -36,13 +34,8 @@ public class Graph {
 			n = 0;
 		}
 		
-		adjacencyList = new ArrayList[numVertices];
-		weights = new HashMap<String, Integer>();
-		
-		for (int i = 0; i < numVertices; i++) {
-			ArrayList<Integer> initAdjacencyLists = new ArrayList<Integer>();
-			adjacencyList[i] = initAdjacencyLists;
-		}
+		adjacencyList = new int[numVertices][];
+		weights = new int[numVertices][];
 		
 		time = 0;
 	}
@@ -63,33 +56,27 @@ public class Graph {
 		}
 	}
 	
-	public void removeVertex(int v) throws Exception {
-		if (0 <= v && v < v_max && containsVertex[v]) {
-			vertices.remove(Integer.valueOf(v));
-			containsVertex[v] = false;
-			n--;
-		} else {
-			throw new Exception("Remove vertex failed.");
+	public void addEdges(int v, int[] outVertices, int[] newWeights) throws Exception {
+		if ((outVertices.length != newWeights.length) || (adjacencyList[v] != null) || (weights[v] != null)) {
+			throw new Exception("Add edges failed.");
+		}
+		
+		adjacencyList[v] = new int[outVertices.length];
+		weights[v] = new int[outVertices.length];
+		
+		for (int i = 0; i < outVertices.length; i++) {
+			adjacencyList[v][i] = outVertices[i];
+			weights[v][i] = newWeights[i];
 		}
 	}
 	
-	public void addEdge(int v1, int v2, int w) throws Exception {
-		if (0 <= v1 && v1 < v_max && 0 <= v2 && v2 < v_max 
-				&& containsVertex[v1] && containsVertex[v2]) {
-			adjacencyList[v1].add(v2);
-			weights.put(edgeToString(v1, v2), w);
-		} else {
-			throw new Exception("Add edge failed.");
+	public void initNullAdjListElts() {
+		for (int i = 0; i < adjacencyList.length; i++) {
+			if (adjacencyList[i] == null) {
+				adjacencyList[i] = new int[0];
+				weights[i] = new int[0];
+			}
 		}
-	}
-	
-	public void updateEdgeWeight(int v1, int v2, int w) {
-		String edge = Graph.edgeToString(v1, v2);
-		weights.put(edge, w);
-	}
-	
-	public static String edgeToString(int v1, int v2) {
-		return Integer.toString(v1) + " " + Integer.toString(v2);
 	}
 	
 	public void displayGraph() {
@@ -98,8 +85,8 @@ public class Graph {
 			if (containsVertex[i]) {
 				System.out.print("Vertex " + i + ": ");
 				
-				for (int j = 0; j < adjacencyList[i].size(); j++) {
-					System.out.print(adjacencyList[i].get(j) + " ");
+				for (int j = 0; j < adjacencyList[i].length; j++) {
+					System.out.print(adjacencyList[i][j] + " ");
 				}
 				System.out.println();
 			}
