@@ -148,4 +148,57 @@ public class Graph {
 	    
 	    return SCCverts;
 	}
+	 
+	// Returns true if the graph has a negative weight cycle.
+	// Assumes every vertex is being used.
+	public boolean hasNegCycle() {
+	    boolean[] visited = new boolean[v_max];
+	    int dist[] = new int[v_max];
+	 
+	    for(int i = 0; i < v_max; i++) {
+	        if (visited[i] == false) {
+	            if (isNegCycleBellmanFord(i, dist)) {
+	                return true;
+	            }
+
+	            for(int j = 0; j < n; j++) {
+	                if (dist[j] != Integer.MAX_VALUE) {
+	                    visited[j] = true;
+	                }
+	            }
+	        }
+	    }
+	    return false;
+	}
+	
+	// Runs Bellman-Ford to determine whether the graph has a negative cycle.
+	public boolean isNegCycleBellmanFord(int src, int dist[]) {
+	    for(int i = 0; i < v_max; i++) {
+	        dist[i] = Integer.MAX_VALUE;
+	    }
+	    dist[src] = 0;
+
+	    for(int i = 1; i <= v_max - 1; i++) {
+	    	for (int u = 0; u < v_max; u++) {
+	    		for (int j = 0; j < adjacencyList[u].length; j++) {
+	    			int v = adjacencyList[u][j];
+	    			if (dist[u] != Integer.MAX_VALUE &&
+    	                dist[u] + weights[u][j] < dist[v]) {
+    	                dist[v] = dist[u] + weights[u][j];
+    	            }
+	    		}
+	    	}
+	    }
+	   
+	    for (int u = 0; u < v_max; u++) {
+    		for (int j = 0; j < adjacencyList[u].length; j++) {
+    			if (dist[u] != Integer.MAX_VALUE &&
+		            dist[u] + weights[u][j] < dist[adjacencyList[u][j]]) {
+		            return true;
+		        }
+    		}
+    	}
+	   
+	    return false;
+	}
 }

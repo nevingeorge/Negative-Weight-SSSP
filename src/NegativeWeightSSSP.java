@@ -1,3 +1,5 @@
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -10,52 +12,51 @@ public class NegativeWeightSSSP {
 	public static final double maxRunTime = 5000; // in seconds
 
 	public static void main(String[] args) throws Exception {
-//		BufferedReader f = new BufferedReader(new FileReader("USA-small"));
-//		
-//		Graph g = new Graph(830, true);
-//		
-//		String line = f.readLine();
-//		while (line != null) {
-//			String[] arr = line.split(" ");
-//			if (Math.random() < .1) {
-//				g.addEdge(Integer.parseInt(arr[1]), Integer.parseInt(arr[2]), -1);
-//			} else {
-//				g.addEdge(Integer.parseInt(arr[1]), Integer.parseInt(arr[2]), Integer.parseInt(arr[3]));
-//			}
-//			line = f.readLine();
-//		}
-//		f.close();
+		Graph g = readInput("USA-very-small");
+		System.out.println(g.hasNegCycle());
 		
-//		int[] tree = bitScaling(g, 0, false);
+//		int[] tree = bitScaling(g, 1, false);
 //
-//		for (int i = 0; i < 533; i++) {
+//		for (int i = 0; i < g_size; i++) {
 //			System.out.println("Parent of vertex " + i + ": " + tree[i]);
 //		}
-
-		Graph g = new Graph(5, true);
-		int[] edges0 = {1, 3};
-		int[] weights0 = {2, 2};
-		g.addEdges(0, edges0, weights0);
+	}
+	
+	@SuppressWarnings("unchecked")
+	public static Graph readInput(String fileName) throws Exception {
+		BufferedReader f = new BufferedReader(new FileReader(fileName));
 		
-		int[] edges1 = {2};
-		int[] weights1 = {2};
-		g.addEdges(1, edges1, weights1);
+		int g_size = Integer.parseInt(f.readLine());
+		Graph g = new Graph(g_size, true);
+		ArrayList<Integer>[] edges = new ArrayList[g_size];
+		ArrayList<Integer>[] weights = new ArrayList[g_size];
 		
-		int[] edges3 = {4};
-		int[] weights3 = {-2};
-		g.addEdges(3, edges3, weights3);
-		
-		int[] edges4 = {2};
-		int[] weights4 = {2};
-		g.addEdges(4, edges4, weights4);
-		
-		g.initNullAdjListElts();
-
-		int[] tree = bitScaling(g, 0, false);
-		
-		for (int i = 0; i < 5; i++) {
-			System.out.println("Parent of vertex " + i + ": " + tree[i]);
+		for (int i = 0; i < g_size; i++) {
+			edges[i] = new ArrayList<Integer>();
+			weights[i] = new ArrayList<Integer>();
 		}
+		
+		String line = f.readLine();
+		while (line != null) {
+			String[] arr = line.split(" ");
+			
+			edges[Integer.parseInt(arr[1])].add(Integer.parseInt(arr[2]));
+//			if (Math.random() < 0) {
+//				weights[Integer.parseInt(arr[1])].add(-1);
+//			} else {
+//				weights[Integer.parseInt(arr[1])].add(Integer.parseInt(arr[3]));
+//			}
+			weights[Integer.parseInt(arr[1])].add(Integer.parseInt(arr[3]));
+			line = f.readLine();
+		}
+		f.close();
+		
+		for (int i = 0; i < g_size; i++) {
+			g.addEdges(i, LowDiameterDecomposition.listToArr(edges[i]), LowDiameterDecomposition.listToArr(weights[i]));
+		}
+		g.initNullAdjListElts();
+		
+		return g;
 	}
 	
 	// Runs the bit scaling algorithm of Goldberg and Rao to return a shortest path tree for g_in
