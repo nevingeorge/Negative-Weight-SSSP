@@ -9,17 +9,45 @@ import java.util.Stack;
 public class NegativeWeightSSSP {
 	
 	public static double startTime; // in ms
-	public static final double maxRunTime = 5000; // in seconds
+	public static final boolean CHECKS = true;
 
 	public static void main(String[] args) throws Exception {
-		Graph g = readInput("USA-very-small");
-		System.out.println(g.hasNegCycle());
-		
-//		int[] tree = bitScaling(g, 1, false);
-//
-//		for (int i = 0; i < g_size; i++) {
-//			System.out.println("Parent of vertex " + i + ": " + tree[i]);
+//		Node node1 = new Node(2, 3);
+//		Node node2 = new Node(2, 3);
+//		
+//		if (node1.equals(node2)) {
+//			System.out.println("hi");
+//		} else {
+//			System.out.println("bye");
 //		}
+//		
+//		System.out.println("nice " + node1.compare(node1, node2));
+//		
+//		PriorityQueue<Node> pq = new PriorityQueue<Node>(10, new Node());
+//		pq.add(node1);
+//		pq.add(node2);
+//		pq.remove(node1);
+//		System.out.println(pq.remove().node);
+		// System.out.println(pq.remove().node);
+		
+		Graph g = readInput("USA-small");
+		int src = 1;
+		
+		// Graph g = getConnectedSubgraph(g_in, src);
+		
+		
+		while (g.hasNegCycle()) {
+			g = readInput("USA-small");
+		}
+		System.out.println("Obtained graph.");
+		
+		runBellmanFord(g);
+		
+		int[] tree = bitScaling(g, src, false);
+
+		for (int i = 0; i < g.v_max; i++) {
+			System.out.println("Parent of vertex " + i + ": " + tree[i]);
+		}
 	}
 	
 	@SuppressWarnings("unchecked")
@@ -40,13 +68,17 @@ public class NegativeWeightSSSP {
 		while (line != null) {
 			String[] arr = line.split(" ");
 			
-			edges[Integer.parseInt(arr[1])].add(Integer.parseInt(arr[2]));
-//			if (Math.random() < 0) {
-//				weights[Integer.parseInt(arr[1])].add(-1);
-//			} else {
-//				weights[Integer.parseInt(arr[1])].add(Integer.parseInt(arr[3]));
-//			}
-			weights[Integer.parseInt(arr[1])].add(Integer.parseInt(arr[3]));
+			int u = Integer.parseInt(arr[1]);
+			int weight = Integer.parseInt(arr[3]);
+			
+			edges[u].add(Integer.parseInt(arr[2]));
+			if (Math.random() < .05) {
+				weights[u].add(-1 * weight);
+			} else {
+				weights[u].add(weight);
+			}
+			// weights[u].add(weight);
+			
 			line = f.readLine();
 		}
 		f.close();
@@ -57,6 +89,18 @@ public class NegativeWeightSSSP {
 		g.initNullAdjListElts();
 		
 		return g;
+	}
+	
+//	public static Graph getConnectedSubgraph(Graph g_in, int src) {
+//		
+//	}
+	
+	public static void runBellmanFord(Graph g) {
+		double time = System.currentTimeMillis();
+		g.BellmanFord(0);
+		double runTime = System.currentTimeMillis() - time;
+		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
+		System.out.println("Time to complete Bellman-Ford: " + roundedRunTime + " ms.");
 	}
 	
 	// Runs the bit scaling algorithm of Goldberg and Rao to return a shortest path tree for g_in
@@ -96,7 +140,7 @@ public class NegativeWeightSSSP {
 				int[] weights = new int[numOutEdges];
 				
 				for (int i = 0; i < numOutEdges; i++) {
-					int roundedWeight = phi[u] - phi[g.adjacencyList[u][i]] + (int) Math.ceil(g.weights[u][i] / precision);
+					int roundedWeight = phi[u] - phi[g.adjacencyList[u][i]] + (int) Math.ceil(g.weights[u][i] / (double) precision);
 					if (roundedWeight < -1) {
 						throw new Exception("Bit scaling produced an edge of weight less than -1.");
 					}
@@ -122,6 +166,16 @@ public class NegativeWeightSSSP {
 			int[] dist = new int[g.n + 1]; // will store the shortest distances from the dummy vertex s to every other vertex
 			getDistances(gScaledS, tree, dist, 0, g.n, new boolean[g.n + 1]);
 			
+			if (CHECKS) {
+//				if (!verifyTree(gScaledS, tree, dist)) {
+//					throw new Exception("SPMain returned an invalid tree.");
+//				}
+				
+				if (hasNegativeEdges(gScaledS, dist)) {
+					throw new Exception("Bit scaling failed.");
+				}
+			}
+			
 			for (int u: g.vertices) {
 				// add then multiply by 2
 				if (precision == 1) {
@@ -137,6 +191,11 @@ public class NegativeWeightSSSP {
 		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
 				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]];
+				
+				if (g.weights[u][i] < 0) {
+					throw new Exception("After applying the phi outputted from running the bit "
+							+ "scaling algorithm and SPMain, there exists an edge with negative weight.");
+				}
 			}
 		}
 		
@@ -144,8 +203,25 @@ public class NegativeWeightSSSP {
 		if (constantOutDegree) {
 			return treeForInputG(g_in, s, tree);
 		}
+		
+		double runTime = (System.currentTimeMillis() - startTime) / 1000.0;
+		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
+		System.out.println("The program terminated in " + roundedRunTime + " seconds.");
+		
 		return tree;
 	}
+	
+//	public static boolean verifyTree(Graph g, int[] tree, int[] dist) {
+//		// verify that tree is a valid tree
+//		
+//		// construct the graph with all the vertices and only the edges in the shortest path tree
+//		boolean[][] adjList = new boolean[g.v_max][g.v_max];
+//		for (int u = 0; u < g.v_max; u++) {
+//			if (tree[u] != -1) {
+//				
+//			}
+//		}
+//	}
 	
 	public static void getDistances(Graph g, int[] tree, int[] dist, int curDis, int curVertex, boolean[] visited) {
 		if (!visited[curVertex]) {
@@ -193,6 +269,11 @@ public class NegativeWeightSSSP {
 		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
 				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]] + 1;
+				
+				if (g.weights[u][i] < 0) {
+					throw new Exception("After applying the phi outputted from SPMain, "
+							+ "there exists an edge with negative weight.");
+				}
 			}
 		}
 		
@@ -348,19 +429,17 @@ public class NegativeWeightSSSP {
 	 * 	algorithm does terminate, it always produces a correct output.
 	 */
 	public static int[] ScaleDown(Graph g, int delta, int B) throws Exception {
-		if (System.currentTimeMillis() - startTime >= maxRunTime * Math.pow(10, 3)) {
-			throw new Exception("Exceeded total allotted run time.");
-		}
-		
 		// if phi(x) == null, assume that phi(x) = 0
 		int[] phi_2 = new int[g.v_max];
 		
 		if (delta > 2) { // base case
-			double d = delta / 2.0;
-			Graph g_B_nneg = createModifiedGB(g, B, true, null, null);
+			// double d = delta / 2.0;
+			// Graph g_B_nneg = createModifiedGB(g, B, true, null, null);
 			
 			// phase 0
-			ArrayList<int[]> E_sep = LowDiameterDecomposition.LDD(g_B_nneg, (int) (d * B));
+			// ArrayList<int[]> E_sep = LowDiameterDecomposition.LDD(g_B_nneg, (int) (d * B));
+			ArrayList<int[]> E_sep = new ArrayList<int[]>();
+			
 			HashSet<int[]> E_sep_hash = new HashSet<int[]>(E_sep);
 			Graph g_B_Esep = createModifiedGB(g, B, false, E_sep_hash, null);
 			ArrayList<ArrayList<Integer>> SCCs = g_B_Esep.SCC();
@@ -375,6 +454,12 @@ public class NegativeWeightSSSP {
 			Graph g_B_E_sep_phi1 = createModifiedGB(g, B, false, E_sep_hash, phi_1);
 			int[] phi = FixDAGEdges(g_B_E_sep_phi1, SCCs, vertexToSCCMap, edgesBetweenSCCs);
 			phi_2 = addPhi(phi_1, phi);
+			
+			if (CHECKS) {
+				if (hasNegativeEdges(g_B_Esep, phi_2)) {
+					throw new Exception("FixDAGEdges failed.");
+				}
+			}
 		}
 		
 		// phase 3
@@ -382,7 +467,25 @@ public class NegativeWeightSSSP {
 		int[] phi_prime = ElimNeg(g_B_phi2);
 		int[] phi_3 = addPhi(phi_2, phi_prime);
 		
+		if (CHECKS) {
+			if (hasNegativeEdges(g_B_phi2, phi_prime)) {
+				throw new Exception("ElimNeg failed.");
+			}
+		}
+		
 		return phi_3;
+	}
+	
+	public static boolean hasNegativeEdges(Graph g, int[] phi) {
+		for (int u = 0; u < g.v_max; u++) {
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				if (g.weights[u][i] + phi[u] - phi[g.adjacencyList[u][i]] < 0) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
 	}
 	
 	/*
@@ -565,7 +668,6 @@ public class NegativeWeightSSSP {
 		stack.push(u);
 	}
 	
-	
 	/*
 	 * ElimNeg takes as input a graph G = (V,E,w) in which all vertices have constant out-degree. 
 	 * The algorithm outputs a price function φ such that w_φ(e) ≥ 0 for all e ∈ E 
@@ -577,18 +679,25 @@ public class NegativeWeightSSSP {
 		Graph Gs = createGs(g);
 		int[] dist = new int[Gs.v_max];
 		int s = Gs.v_max - 1;
+		
 		dist[s] = 0;
 		for (int v = 0; v < s; v++) {
 			dist[v] = Integer.MAX_VALUE;
 		}
+		
 		PriorityQueue<Node> pq = new PriorityQueue<Node>(Gs.v_max, new Node());
+		boolean[] inPQ = new boolean[Gs.v_max];
 		pq.add(new Node(s, dist[s]));
+		inPQ[s] = true;
+		
 		HashSet<Integer> marked = new HashSet<Integer>();
 		
 		while (!pq.isEmpty()) {
 			// Dijkstra Phase
 			while (!pq.isEmpty()) {
 				int v = pq.remove().node;
+				inPQ[v] = false;
+				
 				marked.add(v);
 				
 				for (int i = 0; i < Gs.adjacencyList[v].length; i++) {
@@ -596,9 +705,14 @@ public class NegativeWeightSSSP {
 					int edgeWeight = Gs.weights[v][i];
 					
 					if (edgeWeight >= 0 && (dist[v] + edgeWeight < dist[x])) {
-						marked.add(v);
-						pq.add(new Node(x, dist[x]));
+						marked.add(x);
+						
+						if (inPQ[x]) {
+							pq.remove(new Node(x, dist[x]));
+						}
 						dist[x] = dist[v] + edgeWeight;
+						pq.add(new Node(x, dist[x]));
+						inPQ[x] = true;
 					}
 				}
 			}
@@ -610,8 +724,12 @@ public class NegativeWeightSSSP {
 					int edgeWeight = Gs.weights[v][i];
 					
 					if (edgeWeight < 0 && (dist[v] + edgeWeight < dist[x])) {
+						if (inPQ[x]) {
+							pq.remove(new Node(x, dist[x]));
+						}
 						dist[x] = dist[v] + edgeWeight;
 						pq.add(new Node(x, dist[x]));
+						inPQ[x] = true;
 					}
 				}
 			}

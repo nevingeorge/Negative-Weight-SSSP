@@ -201,4 +201,27 @@ public class Graph {
 	   
 	    return false;
 	}
+	
+	public void BellmanFord(int src) {
+        int[] dist = new int[v_max];
+
+        for (int i = 0; i < v_max; i++) {
+            dist[i] = Integer.MAX_VALUE;
+        }
+        dist[src] = 0;
+ 
+        for (int i = 1; i < v_max; i++) {
+        	for (int u = 0; u < v_max; u++) {
+        		for (int j = 0 ; j < adjacencyList[u].length; j++) {
+        			int v = adjacencyList[u][j];
+        			int weight = weights[u][j];
+        			
+        			if (dist[u] != Integer.MAX_VALUE
+                            && dist[u] + weight < dist[v]) {
+                            dist[v] = dist[u] + weight;
+        			}
+        		}
+        	}
+        }
+    }
 }

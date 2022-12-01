@@ -271,8 +271,10 @@ public class LowDiameterDecomposition {
 		ArrayList<int[]> farthestDistancesSeen = new ArrayList<int[]>();
 		ArrayList<int[]> farthestDistancesSeen_rev = new ArrayList<int[]>();
 		double constant = d / (3.0 * Math.log(g.n));
-		Set<Integer> settled = new HashSet<Integer>();
-		Set<Integer> settled_rev = new HashSet<Integer>();
+		boolean[] settled = new boolean[g.v_max];
+		boolean[] settled_rev = new boolean[g_rev.v_max];
+		int numSettled = 0;
+		int numSettled_rev = 0;
 	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
 	    PriorityQueue<Node> pq_rev = new PriorityQueue<Node>(g.v_max, new Node());
 		int[] dist = new int[g.v_max];
@@ -285,10 +287,10 @@ public class LowDiameterDecomposition {
         int j_rev = -1;
  
         while (true) {
-        	if (settled.size() == g.n) {
+        	if (numSettled == g.n) {
         		finished = true;
         	}
-        	if (settled_rev.size() == g.n) {
+        	if (numSettled_rev == g.n) {
         		finished_rev = true;
         	}
         	
@@ -302,7 +304,7 @@ public class LowDiameterDecomposition {
         	}
         	
         	if (!finished) {
-        		int[] result = oneIterationLayerRange(g, pq, settled, farthestDistancesSeen, constant, dist, d);
+        		int[] result = oneIterationLayerRange(g, pq, settled, numSettled, farthestDistancesSeen, constant, dist, d);
             	if (result != null) {
             		if (result[0] == 1) {
             			j = result[1];
@@ -313,10 +315,11 @@ public class LowDiameterDecomposition {
                 		return output;
             		}
             	}
+            	numSettled++;
         	}
         	
         	if (!finished_rev) {
-        		int[] result_rev = oneIterationLayerRange(g_rev, pq_rev, settled_rev, farthestDistancesSeen_rev, constant, dist_rev, d);
+        		int[] result_rev = oneIterationLayerRange(g_rev, pq_rev, settled_rev, numSettled_rev, farthestDistancesSeen_rev, constant, dist_rev, d);
             	if (result_rev != null) {
             		if (result_rev[0] == 1) {
             			j_rev = result_rev[1];
@@ -327,6 +330,7 @@ public class LowDiameterDecomposition {
                 		return output;
             		}
             	}
+            	numSettled_rev++;
         	}
         }
 	}	
@@ -379,17 +383,20 @@ public class LowDiameterDecomposition {
 		ArrayList<int[]> farthestDistancesSeen = new ArrayList<int[]>();
 		
 		double constant = d / (3.0 * Math.log(g.n));
-		Set<Integer> settled = new HashSet<Integer>();
+		boolean[] settled = new boolean[g.v_max];
 	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
 		int[] dist = new int[g.v_max];
 		init(g, pq, dist, s);
  
-        while (settled.size() != g.n) {
-        	int[] result = oneIterationLayerRange(g, pq, settled, farthestDistancesSeen, constant, dist, d);
+		int numSettled = 0;
+        while (numSettled != g.n) {
+        	int[] result = oneIterationLayerRange(g, pq, settled, numSettled, farthestDistancesSeen, constant, dist, d);
         	
         	if (result != null) {
         		return result;
         	}
+        	
+        	numSettled++;
         }
         
         throw new Exception("Layer range did not find a satisfying i.");
@@ -397,7 +404,7 @@ public class LowDiameterDecomposition {
 	
 	
 	
-	public static int[] oneIterationLayerRange(Graph g, PriorityQueue<Node> pq, Set<Integer> settled, ArrayList<int[]> farthestDistancesSeen, double constant, int[] dist, int d) throws Exception {
+	public static int[] oneIterationLayerRange(Graph g, PriorityQueue<Node> pq, boolean[] settled, int numSettled, ArrayList<int[]> farthestDistancesSeen, double constant, int[] dist, int d) throws Exception {
 		if (pq.isEmpty()) {
 			/*
 			 * Nothing left to search.
@@ -414,21 +421,21 @@ public class LowDiameterDecomposition {
 
         int u = pq.remove().node;
 
-        if (settled.contains(u)) {
+        if (settled[u]) {
             return null;
         }
 
-        settled.add(u);
+        settled[u] = true;
         
         if (farthestDistancesSeen.size() == 0 || dist[u] > farthestDistancesSeen.get(farthestDistancesSeen.size() - 1)[0]) {
-        	int[] seenDistance = {dist[u], settled.size()};
+        	int[] seenDistance = {dist[u], numSettled + 1};
         	farthestDistancesSeen.add(seenDistance);
         }
         
         int farthestDistanceSeen = farthestDistancesSeen.get(farthestDistancesSeen.size() - 1)[0];
         
         // case 1
-        if (settled.size() > 2.0 * g.n / 3.0) {
+        if (numSettled + 1 > 2.0 * g.n / 3.0) {
         	int[] output = {1, farthestDistanceSeen};
         	return output;
         }
@@ -493,24 +500,26 @@ public class LowDiameterDecomposition {
 	public static ArrayList<Integer> volume(Graph g, int s, int r) {
 		ArrayList<Integer> output = new ArrayList<Integer>();
 		
-		Set<Integer> settled = new HashSet<Integer>();
+		boolean[] settled = new boolean[g.v_max];
+		int numSettled = 0;
 	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
 		int[] dist = new int[g.v_max];
 		init(g, pq, dist, s);
  
-        while (settled.size() != g.n) {
+        while (numSettled != g.n) {
             if (pq.isEmpty()) {
                 return output;
             }
 
             int u = pq.remove().node;
 
-            if (settled.contains(u) || dist[u] > r) {
+            if (settled[u] || dist[u] > r) {
                 continue;
             }
             
             output.add(u);
-            settled.add(u);
+            settled[u] = true;
+            numSettled++;
             
             updateNeighbors(g, u, settled, pq, dist, r);
         }
@@ -523,23 +532,26 @@ public class LowDiameterDecomposition {
 	// returns an array containing the distances from s to every vertex in g
 	// runs in O(V + ElogV)
 	public static int[] Dijkstra(Graph g, int s) {		
-		Set<Integer> settled = new HashSet<Integer>();
+		boolean[] settled = new boolean[g.v_max];
+		int numSettled = 0;
 	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
 		int[] dist = new int[g.v_max];
 		init(g, pq, dist, s);
  
-        while (settled.size() != g.n) {
+        while (numSettled != g.n) {
             if (pq.isEmpty()) {
                 return dist;
             }
 
             int u = pq.remove().node;
 
-            if (settled.contains(u)) {
+            if (settled[u]) {
                 continue;
             }
 
-            settled.add(u);
+            settled[u] = true;
+            numSettled++;
+            
             updateNeighbors(g, u, settled, pq, dist, Integer.MAX_VALUE);
         }
         
@@ -557,11 +569,11 @@ public class LowDiameterDecomposition {
 	}
 	
 	
-	public static void updateNeighbors(Graph g, int u, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist, int d) {
+	public static void updateNeighbors(Graph g, int u, boolean[] settled, PriorityQueue<Node> pq, int[] dist, int d) {
         for (int i = 0; i < g.adjacencyList[u].length; i++) {
         	int v = g.adjacencyList[u][i];
         	
-            if (!settled.contains(v)) {
+            if (!settled[v]) {
                 int newDistance = dist[u] + g.weights[u][i];
 
                 if (newDistance < dist[v]) {
@@ -586,6 +598,14 @@ class Node implements Comparator<Node> {
     public Node(int node, int cost) {
         this.node = node;
         this.cost = cost;
+    }
+    
+    @Override public boolean equals(Object o) {
+    	Node node2 = (Node) o;
+    	if ((node == node2.node) && (cost == node2.cost)) {
+    		return true;
+    	}
+    	return false;
     }
 
     @Override public int compare(Node node1, Node node2) {
