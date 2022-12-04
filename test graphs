@@ -112,3 +112,16 @@ for (int i = 0; i < 6; i++) {
 		for (int i = 0; i < 5; i++) {
 			System.out.println("Parent of vertex " + i + ": " + tree[i]);
 		}
+		
+		Graph g_in = readInput("USA-very-small");
+		int src = 1;
+		
+		Graph g = getConnectedSubgraph(g_in, src);
+		
+		ArrayList<ArrayList<Integer>> out = g.SCC();
+	    for (ArrayList<Integer> v : out) {
+	    	for (int u : v) {
+	    		System.out.print(u + " ");
+	    	}
+	    	System.out.println();
+	    }

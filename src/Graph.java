@@ -93,9 +93,17 @@ public class Graph {
 		}
 	}
 	
-	// SCC only run on graphs where n == v_max
+	// SCC only run on graphs where n == v_max, needs to create mapping from vertices to [n] first to work
 	// Runs Tarjan's Algorithm for finding SCCs
 	ArrayList<ArrayList<Integer>> SCC() {
+		int[] vertsToN = new int[v_max];
+		int[] NtoVerts = new int[n];
+		
+		for (int i = 0; i < vertices.size(); i++) {
+			vertsToN[vertices.get(i)] = i;
+			NtoVerts[i] = vertices.get(i);
+		}
+				
 	    int[] disc = new int[n];
 	    int[] low = new int[n];
 	    time = 0;
@@ -110,14 +118,14 @@ public class Graph {
 	    ArrayList<ArrayList<Integer>> SCCverts = new ArrayList<ArrayList<Integer>>();
 	    for(int i = 0; i < n; i++) {
 	        if (disc[i] == -1) {
-	        	SCCverts.addAll(SCCUtil(i, low, disc, stackMember, st));
+	        	SCCverts.addAll(SCCUtil(i, low, disc, stackMember, st, vertsToN, NtoVerts));
 	        }
 	    }
 	    
 	    return SCCverts;
 	}
 		
-	public ArrayList<ArrayList<Integer>> SCCUtil(int u, int low[], int disc[], boolean stackMember[], Stack<Integer> st) {
+	public ArrayList<ArrayList<Integer>> SCCUtil(int u, int low[], int disc[], boolean stackMember[], Stack<Integer> st, int[] vertsToN, int[] NtoVerts) {
 		ArrayList<ArrayList<Integer>> SCCverts = new ArrayList<ArrayList<Integer>>(); 
 		
 		disc[u] = time;
@@ -126,9 +134,11 @@ public class Graph {
 	    stackMember[u] = true;
 	    st.push(u);
 	     
-	    for (int v : adjacencyList[u]) {
+	    for (int v_true : adjacencyList[NtoVerts[u]]) {
+	    	int v = vertsToN[v_true];
+	    	
 	        if (disc[v] == -1) {
-	            SCCverts.addAll(SCCUtil(v, low, disc, stackMember, st));
+	            SCCverts.addAll(SCCUtil(v, low, disc, stackMember, st, vertsToN, NtoVerts));
 	            low[u] = Math.min(low[u], low[v]);
 	        } else if (stackMember[v] == true) {
 	            low[u] = Math.min(low[u], disc[v]);
@@ -140,7 +150,7 @@ public class Graph {
 	    	ArrayList<Integer> oneSCC = new ArrayList<Integer>();
 	        while (w != u) {
 	            w = (int) st.pop();
-	            oneSCC.add(w);
+	            oneSCC.add(NtoVerts[w]);
 	            stackMember[w] = false;
 	        }
 	        SCCverts.add(oneSCC);
@@ -152,12 +162,20 @@ public class Graph {
 	// Returns true if the graph has a negative weight cycle.
 	// Assumes every vertex is being used.
 	public boolean hasNegCycle() {
-	    boolean[] visited = new boolean[v_max];
-	    int dist[] = new int[v_max];
+		int[] vertsToN = new int[v_max];
+		int[] NtoVerts = new int[n];
+		
+		for (int i = 0; i < vertices.size(); i++) {
+			vertsToN[vertices.get(i)] = i;
+			NtoVerts[i] = vertices.get(i);
+		}
+		
+	    boolean[] visited = new boolean[n];
+	    int[] dist = new int[n];
 	 
-	    for(int i = 0; i < v_max; i++) {
+	    for(int i = 0; i < n; i++) {
 	        if (visited[i] == false) {
-	            if (isNegCycleBellmanFord(i, dist)) {
+	            if (isNegCycleBellmanFord(i, dist, vertsToN, NtoVerts)) {
 	                return true;
 	            }
 
@@ -172,28 +190,35 @@ public class Graph {
 	}
 	
 	// Runs Bellman-Ford to determine whether the graph has a negative cycle.
-	public boolean isNegCycleBellmanFord(int src, int dist[]) {
-	    for(int i = 0; i < v_max; i++) {
+	public boolean isNegCycleBellmanFord(int src, int dist[], int[] vertsToN, int[] NtoVerts) {
+	    for(int i = 0; i < n; i++) {
 	        dist[i] = Integer.MAX_VALUE;
 	    }
 	    dist[src] = 0;
 
-	    for(int i = 1; i <= v_max - 1; i++) {
-	    	for (int u = 0; u < v_max; u++) {
-	    		for (int j = 0; j < adjacencyList[u].length; j++) {
-	    			int v = adjacencyList[u][j];
+	    for(int i = 1; i <= n - 1; i++) {
+	    	for (int u = 0; u < n; u++) {
+	    		int u_real = NtoVerts[u];
+	    		
+	    		for (int j = 0; j < adjacencyList[u_real].length; j++) {
+	    			int v = vertsToN[adjacencyList[u_real][j]];
+	    			
 	    			if (dist[u] != Integer.MAX_VALUE &&
-    	                dist[u] + weights[u][j] < dist[v]) {
-    	                dist[v] = dist[u] + weights[u][j];
+    	                dist[u] + weights[u_real][j] < dist[v]) {
+    	                dist[v] = dist[u] + weights[u_real][j];
     	            }
 	    		}
 	    	}
 	    }
 	   
-	    for (int u = 0; u < v_max; u++) {
-    		for (int j = 0; j < adjacencyList[u].length; j++) {
+	    for (int u = 0; u < n; u++) {
+	    	int u_real = NtoVerts[u];
+	    	
+    		for (int j = 0; j < adjacencyList[u_real].length; j++) {
+    			int v = vertsToN[adjacencyList[u_real][j]];
+    			
     			if (dist[u] != Integer.MAX_VALUE &&
-		            dist[u] + weights[u][j] < dist[adjacencyList[u][j]]) {
+		            dist[u] + weights[u_real][j] < dist[v]) {
 		            return true;
 		        }
     		}
@@ -202,19 +227,31 @@ public class Graph {
 	    return false;
 	}
 	
-	public void BellmanFord(int src) {
-        int[] dist = new int[v_max];
+	public void BellmanFord(int src_real) {
+		int[] vertsToN = new int[v_max];
+		int[] NtoVerts = new int[n];
+		
+		for (int i = 0; i < vertices.size(); i++) {
+			vertsToN[vertices.get(i)] = i;
+			NtoVerts[i] = vertices.get(i);
+		}
+		
+        int[] dist = new int[n];
 
-        for (int i = 0; i < v_max; i++) {
+        for (int i = 0; i < n; i++) {
             dist[i] = Integer.MAX_VALUE;
         }
+        
+        int src = vertsToN[src_real];
         dist[src] = 0;
  
-        for (int i = 1; i < v_max; i++) {
-        	for (int u = 0; u < v_max; u++) {
-        		for (int j = 0 ; j < adjacencyList[u].length; j++) {
-        			int v = adjacencyList[u][j];
-        			int weight = weights[u][j];
+        for (int i = 1; i < n; i++) {
+        	for (int u = 0; u < n; u++) {
+        		int u_real = NtoVerts[u];
+        		
+        		for (int j = 0 ; j < adjacencyList[u_real].length; j++) {
+        			int v = vertsToN[adjacencyList[u_real][j]];
+        			int weight = weights[u_real][j];
         			
         			if (dist[u] != Integer.MAX_VALUE
                             && dist[u] + weight < dist[v]) {
@@ -224,4 +261,16 @@ public class Graph {
         	}
         }
     }
+	
+	public boolean hasNoNegativeEdgeWeights() {
+		for (int v : vertices) {
+			for (int i = 0; i < adjacencyList[v].length; i++) {
+				if (weights[v][i] < 0) {
+					return false;
+				}
+			}
+		}
+		
+		return true;
+	}
 }

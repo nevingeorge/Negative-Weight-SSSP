@@ -12,41 +12,26 @@ public class NegativeWeightSSSP {
 	public static final boolean CHECKS = true;
 
 	public static void main(String[] args) throws Exception {
-//		Node node1 = new Node(2, 3);
-//		Node node2 = new Node(2, 3);
-//		
-//		if (node1.equals(node2)) {
-//			System.out.println("hi");
-//		} else {
-//			System.out.println("bye");
-//		}
-//		
-//		System.out.println("nice " + node1.compare(node1, node2));
-//		
-//		PriorityQueue<Node> pq = new PriorityQueue<Node>(10, new Node());
-//		pq.add(node1);
-//		pq.add(node2);
-//		pq.remove(node1);
-//		System.out.println(pq.remove().node);
-		// System.out.println(pq.remove().node);
-		
-		Graph g = readInput("USA-small");
+	    String fileName = "USA-small";
 		int src = 1;
 		
-		// Graph g = getConnectedSubgraph(g_in, src);
-		
-		
-		while (g.hasNegCycle()) {
-			g = readInput("USA-small");
+		Graph g_in = readInput(fileName);
+		Graph g = getConnectedSubgraph(g_in, src);
+
+		while (g.hasNegCycle() || g.hasNoNegativeEdgeWeights()) {
+			g_in = readInput(fileName);
+			g = getConnectedSubgraph(g_in, src);
 		}
+		
 		System.out.println("Obtained graph.");
 		
 		runBellmanFord(g);
 		
-		int[] tree = bitScaling(g, src, false);
-
-		for (int i = 0; i < g.v_max; i++) {
-			System.out.println("Parent of vertex " + i + ": " + tree[i]);
+		int[] tree = bitScaling(g, src);
+		
+		System.out.println();
+		for (int v : g.vertices) {
+			System.out.println("Parent of vertex " + v + ": " + tree[v]);
 		}
 	}
 	
@@ -64,20 +49,28 @@ public class NegativeWeightSSSP {
 			weights[i] = new ArrayList<Integer>();
 		}
 		
+		boolean[][] edge_exists = new boolean[g.v_max][g.v_max];
+		
 		String line = f.readLine();
 		while (line != null) {
 			String[] arr = line.split(" ");
 			
 			int u = Integer.parseInt(arr[1]);
+			int v = Integer.parseInt(arr[2]);
 			int weight = Integer.parseInt(arr[3]);
 			
-			edges[u].add(Integer.parseInt(arr[2]));
-			if (Math.random() < .05) {
-				weights[u].add(-1 * weight);
-			} else {
-				weights[u].add(weight);
+			if (!edge_exists[u][v]) {
+				edges[u].add(v);
+				if (Math.random() < .05) {
+					// weights[u].add(-1 * weight);
+					weights[u].add(-1);
+				} else {
+					weights[u].add(weight);
+				}
+				// weights[u].add(weight);
+				
+				edge_exists[u][v] = true;
 			}
-			// weights[u].add(weight);
 			
 			line = f.readLine();
 		}
@@ -91,9 +84,44 @@ public class NegativeWeightSSSP {
 		return g;
 	}
 	
-//	public static Graph getConnectedSubgraph(Graph g_in, int src) {
-//		
-//	}
+	public static Graph getConnectedSubgraph(Graph g, int src) throws Exception {
+		boolean[] reachable = new boolean[g.v_max];
+		findReachable(g, src, reachable);
+		
+		Graph subGraph = new Graph(g.v_max, false);
+		for (int v = 0; v < g.v_max; v++) {
+			if (reachable[v]) {
+				subGraph.addVertex(v);
+			}
+		}
+		
+		for (int u : subGraph.vertices) {
+			ArrayList<Integer> outVertices = new ArrayList<Integer>();
+			ArrayList<Integer> weights = new ArrayList<Integer>();
+			
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {				
+				if (reachable[g.adjacencyList[u][i]]) {
+					outVertices.add(g.adjacencyList[u][i]);
+					weights.add(g.weights[u][i]);
+				}
+			}
+			
+			subGraph.addEdges(u, LowDiameterDecomposition.listToArr(outVertices), LowDiameterDecomposition.listToArr(weights));
+		}
+		subGraph.initNullAdjListElts();
+		
+		return subGraph;
+	}
+	
+	public static void findReachable(Graph g, int u, boolean[] reachable) {
+		if (!reachable[u]) {
+			reachable[u] = true;
+			
+			for (int v : g.adjacencyList[u]) {
+				findReachable(g, v, reachable);
+			}
+		}
+	}
 	
 	public static void runBellmanFord(Graph g) {
 		double time = System.currentTimeMillis();
@@ -104,16 +132,9 @@ public class NegativeWeightSSSP {
 	}
 	
 	// Runs the bit scaling algorithm of Goldberg and Rao to return a shortest path tree for g_in
-	public static int[] bitScaling(Graph g_in, int s, boolean constantOutDegree) throws Exception {
+	public static int[] bitScaling(Graph g, int s) throws Exception {
 		startTime = System.currentTimeMillis();
-		
-		Graph g;
-		if (constantOutDegree) {
-			g = constantOutDegree(g_in);
-		} else {
-			g = g_in;
-		}
-		
+
 		int minWeight = Integer.MAX_VALUE;
 		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
@@ -125,14 +146,17 @@ public class NegativeWeightSSSP {
 		}
 		
 		if (minWeight >= 0) {
-			return getShortestPathTree(g_in, s);
+			System.out.println("Graph has no negative edge weights.");
+			return getShortestPathTree(g, s);
 		}
 		
 		int precision = (int) Math.pow(2, (int) logBase2(-1 * minWeight));
 		int[] phi = new int[g.v_max];
 		
 		while (precision >= 1) {
-			Graph gScaledS = new Graph(g.n + 1, true); // scaled graph with added dummy source vertex s
+			Graph gScaledS = new Graph(g.v_max + 1, false); // scaled graph with added dummy source vertex s
+			gScaledS.addVertices(g.vertices);
+			gScaledS.addVertex(g.v_max);
 			
 			for (int u : g.vertices) {
 				int numOutEdges = g.adjacencyList[u].length;
@@ -141,8 +165,10 @@ public class NegativeWeightSSSP {
 				
 				for (int i = 0; i < numOutEdges; i++) {
 					int roundedWeight = phi[u] - phi[g.adjacencyList[u][i]] + (int) Math.ceil(g.weights[u][i] / (double) precision);
-					if (roundedWeight < -1) {
-						throw new Exception("Bit scaling produced an edge of weight less than -1.");
+					if (CHECKS) {
+						if (roundedWeight < -1) {
+							throw new Exception("Bit scaling produced an edge of weight less than -1.");
+						}
 					}
 					
 					edges[i] = g.adjacencyList[u][i];
@@ -154,24 +180,22 @@ public class NegativeWeightSSSP {
 			
 			int[] dummyEdges = new int[g.n];
 			int[] dummyWeights = new int[g.n];
-			for (int v = 0; v < g.n; v++) {	
-				dummyEdges[v] = v;
-				dummyWeights[v] = 0;
+			for (int i = 0; i < g.n; i++) {	
+				dummyEdges[i] = g.vertices.get(i);
+				dummyWeights[i] = 0;
 			}
-			gScaledS.addEdges(g.n, dummyEdges, dummyWeights);
+			gScaledS.addEdges(g.v_max, dummyEdges, dummyWeights);
 			gScaledS.initNullAdjListElts();
 			
-			int[] tree = SPmain(gScaledS, g.n);
+			int[] tree = SPmain(gScaledS, g.v_max);
 			
-			int[] dist = new int[g.n + 1]; // will store the shortest distances from the dummy vertex s to every other vertex
-			getDistances(gScaledS, tree, dist, 0, g.n, new boolean[g.n + 1]);
+			int[] dist = new int[g.v_max + 1]; // will store the shortest distances from the dummy vertex s to every other vertex
+			getDistances(gScaledS, tree, dist, 0, g.v_max, new boolean[g.v_max + 1]);
 			
 			if (CHECKS) {
-//				if (!verifyTree(gScaledS, tree, dist)) {
-//					throw new Exception("SPMain returned an invalid tree.");
-//				}
+				verifyTree(gScaledS, tree, dist, g.v_max);
 				
-				if (hasNegativeEdges(gScaledS, dist)) {
+				if (hasNegativeEdges(gScaledS, dist, 0)) {
 					throw new Exception("Bit scaling failed.");
 				}
 			}
@@ -192,36 +216,72 @@ public class NegativeWeightSSSP {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
 				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]];
 				
-				if (g.weights[u][i] < 0) {
-					throw new Exception("After applying the phi outputted from running the bit "
-							+ "scaling algorithm and SPMain, there exists an edge with negative weight.");
+				if (CHECKS) {
+					if (g.weights[u][i] < 0) {
+						throw new Exception("After applying the phi outputted from running the bit "
+								+ "scaling algorithm and SPMain, there exists an edge with negative weight.");
+					}
 				}
 			}
 		}
 		
 		int[] tree = getShortestPathTree(g, s);
-		if (constantOutDegree) {
-			return treeForInputG(g_in, s, tree);
-		}
 		
-		double runTime = (System.currentTimeMillis() - startTime) / 1000.0;
+		double runTime = System.currentTimeMillis() - startTime;
 		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
-		System.out.println("The program terminated in " + roundedRunTime + " seconds.");
+		System.out.println("The program terminated in " + roundedRunTime + " ms.");
 		
 		return tree;
 	}
 	
-//	public static boolean verifyTree(Graph g, int[] tree, int[] dist) {
-//		// verify that tree is a valid tree
-//		
-//		// construct the graph with all the vertices and only the edges in the shortest path tree
-//		boolean[][] adjList = new boolean[g.v_max][g.v_max];
-//		for (int u = 0; u < g.v_max; u++) {
-//			if (tree[u] != -1) {
-//				
-//			}
-//		}
-//	}
+	public static void verifyTree(Graph g, int[] tree, int[] dist, int src) throws Exception {
+		// verify that tree is a valid tree
+		
+		// construct the graph with all the vertices and only the edges in the shortest path tree
+		boolean[][] adjList = new boolean[g.v_max][g.v_max];
+		for (int u : g.vertices) {
+			if (tree[u] != -1) {
+				if (!g.containsVertex[tree[u]]) {
+					throw new Exception("Graph structure broken.");
+				}
+				
+				adjList[tree[u]][u] = true;
+			}
+		}
+		
+		boolean[] visited = new boolean[g.v_max];
+		if (containsCycles(g, adjList, src, visited)) {
+			throw new Exception("SPMain returned an invalid tree.");
+		}
+		
+		// verify that there aren't any shorter distances
+		for (int u : g.vertices) {
+			for (int i = 0; i < g.adjacencyList[u].length; i++) {
+				int v = g.adjacencyList[u][i];
+				
+				if (dist[v] > dist[u] + g.weights[u][i]) {
+					throw new Exception("SPMain returned a tree that is not a shortest paths tree.");
+				}
+			}
+		}
+	}
+	
+	public static boolean containsCycles(Graph g, boolean[][] adjList, int src, boolean[] visited) {
+		if (visited[src]) {
+			return true;
+		}
+		
+		visited[src] = true;
+		for (int v = 0; v < g.v_max; v++) {
+			if (adjList[src][v]) {
+				if (containsCycles(g, adjList, v, visited)) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
+	}
 	
 	public static void getDistances(Graph g, int[] tree, int[] dist, int curDis, int curVertex, boolean[] visited) {
 		if (!visited[curVertex]) {
@@ -239,29 +299,23 @@ public class NegativeWeightSSSP {
 	
 	/*
 	 * Returns the shortest path tree in g from s.
-	 * The boolean constantOutDegree is false if we wish to ignore the assumption that g has constant out-degree.
 	 */
-	public static int[] SPmain(Graph g_in, int s) throws Exception {		
-		Graph g = new Graph(g_in.n, true);
-		
-		for (int u : g_in.vertices) {
-			int[] edges = new int[g_in.adjacencyList[u].length];
-			int[] weights = new int[g_in.adjacencyList[u].length];
-			
-			for (int i = 0; i < g_in.adjacencyList[u].length; i++) {
-				edges[i] = g_in.adjacencyList[u][i];
-				weights[i] = g_in.weights[u][i] * 2 * g_in.n;
-			}
-			g.addEdges(u, edges, weights);
-		}
-		g.initNullAdjListElts();
-		
-		int B = roundPower2(2 * g.n);
+	public static int[] SPmain(Graph g_in, int s) throws Exception {	
+		int scaleFactor = 2 * g_in.n;
+		Graph g = getScaledGraph(g_in, scaleFactor);
+		int B = roundPower2(scaleFactor);
 		int[] phi = new int[g.v_max];
 		
 		for (int i = 1; i <= logBase2(B); i++) {
 			Graph g_phi = createModifiedGB(g, 0, false, null, phi);
 			int[] phi_i = ScaleDown(g_phi, g.n, B / (int) Math.pow(2, i));
+			
+			if (CHECKS) {
+				if (hasNegativeEdges(g_phi, phi_i, B / (int) Math.pow(2, i))) {
+					throw new Exception("ScaleDown failed.");
+				}
+			}
+			
 			phi = addPhi(phi, phi_i);
 		}
 		
@@ -270,138 +324,57 @@ public class NegativeWeightSSSP {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
 				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]] + 1;
 				
-				if (g.weights[u][i] < 0) {
-					throw new Exception("After applying the phi outputted from SPMain, "
-							+ "there exists an edge with negative weight.");
-				}
-			}
-		}
-		
-		return getShortestPathTree(g, s);
-	}
-	
-	/*
-	 * Outputs a graph that has constant out degree 2.
-	 * For each vertex v (letting OD mean out degree),
-	 * if OD(v) = 0, add a vertex v'. make a loop between v and v', as well as self-loops for v and v'.
-	 * if OD(v) = 1, add a self-loop.
-	 * if OD(v) >= 2, add OD(v) - 1 vertices. Turn the OD(v) vertices into a cycle.
-	 * Make each of the OD(v) out edges come out of one of the vertices in the cycle.
-	 * Make all of the input edges going into the original vertices.
-	 * All the newly added edges have weight 0.
-	 */
-	public static Graph constantOutDegree(Graph g) throws Exception {
-		int numVertices = 0;
-		int[] indexOfMainVertex = new int[g.n]; // contains the indices of the original vertices in g
-		for (int v = 0; v < g.n; v++) {
-			indexOfMainVertex[v] = numVertices;
-			int outDegree = g.adjacencyList[v].length;
-			if (outDegree == 0) {
-				numVertices += 2;
-			} else {
-				numVertices += outDegree;
-			}
-		}
-		
-		Graph gOut = new Graph(numVertices, true);
-		
-		for (int u = 0; u < g.n; u++) {
-			int outDegree = g.adjacencyList[u].length;
-			
-			if (outDegree == 0) {
-				int[] edges0 = new int[2];
-				int[] weights0 = new int[2];
-				int[] edges1 = new int[2];
-				int[] weights1 = new int[2];
-				
-				// self-loops
-				edges0[0] = indexOfMainVertex[u];
-				weights0[0] = 0;
-				edges1[0] = indexOfMainVertex[u] + 1;
-				weights1[0] = 0;
-				
-				// loop between v and v'
-				edges0[1] = indexOfMainVertex[u] + 1;
-				weights0[0] = 0;
-				edges1[1] = indexOfMainVertex[u];
-				weights1[1] = 0;
-				
-				gOut.addEdges(indexOfMainVertex[u], edges0, weights0);
-				gOut.addEdges(indexOfMainVertex[u] + 1, edges1, weights1);
-			} else if (outDegree == 1) {
-				int[] edges = new int[2];
-				int[] weights = new int[2];
-				
-				// original edge
-				edges[0] = g.adjacencyList[u][0];
-				weights[0] = 0;
-				// create a self-loop
-				edges[1] = indexOfMainVertex[u];
-				weights[1] = 0;
-				
-				gOut.addEdges(indexOfMainVertex[u], edges, weights);
-			} else {
-				int i = 0;
-				for (int v : g.adjacencyList[u]) {
-					int[] edges = new int[2];
-					int[] weights = new int[2];
-					
-					// edge (u, v) => (u + i, indexOfMainVertex[v]), i in [0, g.adjacencyList[u].length)
-					edges[0] = indexOfMainVertex[v];
-					weights[0] = 0;
-					
-					// create a cycle
-					if (i == outDegree - 1) {
-						edges[1] = indexOfMainVertex[u];
-					} else {
-						edges[1] = indexOfMainVertex[u] + i + 1;
+				if (CHECKS) {
+					if (g.weights[u][i] < 0) {
+						throw new Exception("After applying the phi outputted from SPMain, "
+								+ "there exists an edge with negative weight.");
 					}
-					weights[1] = 0;
-					
-					gOut.addEdges(indexOfMainVertex[u] + i, edges, weights);
-					
-					i++;
 				}
 			}
 		}
-		gOut.initNullAdjListElts();
 		
-		return gOut;
+		int[] tree = getShortestPathTree(g, s);
+		
+		if (CHECKS) {
+			if (invalidTree(g, s, tree)) {
+				throw new Exception("SPMain get shortest path tree failed.");
+			}
+		}
+		
+		return tree;
 	}
 	
-	// converts the tree for gOut into a tree for g_in
-	public static int[] treeForInputG(Graph g, int s, int[] tree) {
-		int[] newVerttoOldVert = new int[g.v_max];
-		int numVertices = 0;
-		HashSet<Integer> originalVertices = new HashSet<Integer>();
-		for (int v = 0; v < g.n; v++) {
-			originalVertices.add(numVertices);
-			int outDegree = g.adjacencyList[v].length;
+	public static Graph getScaledGraph(Graph g_in, int scaleFactor) throws Exception {
+		Graph g = new Graph(g_in.v_max, false);
+		g.addVertices(g_in.vertices);
+		
+		for (int u : g_in.vertices) {
+			int[] edges = new int[g_in.adjacencyList[u].length];
+			int[] weights = new int[g_in.adjacencyList[u].length];
 			
-			if (outDegree == 0) {
-				newVerttoOldVert[numVertices] = v;
-				newVerttoOldVert[numVertices + 1] = v;
-				numVertices += 2;
-			} else {
-				for (int i = 0; i < outDegree; i++) {
-					newVerttoOldVert[numVertices + i] = v;
+			for (int i = 0; i < g_in.adjacencyList[u].length; i++) {
+				edges[i] = g_in.adjacencyList[u][i];
+				weights[i] = g_in.weights[u][i] * scaleFactor;
+			}
+			g.addEdges(u, edges, weights);
+		}
+		g.initNullAdjListElts();
+		
+		return g;
+	}
+	
+	public static boolean invalidTree(Graph g, int s, int[] tree) {
+		for (int u = 0; u < tree.length; u++) {
+			if (g.containsVertex[u]) {
+				if ((u != s) && (tree[u] == -1)) {
+					return true;
 				}
-				numVertices += outDegree;
+				if ((u == s) && (tree[u] != -1)) {
+					return true;
+				}
 			}
 		}
-		
-		int[] treeInputG = new int[g.n];
-		for (int v = 0; v < numVertices; v++) {
-			if (originalVertices.contains(v)) {
-				if (tree[v] == -1) {
-					treeInputG[newVerttoOldVert[v]] = -1;
-				} else {
-					treeInputG[newVerttoOldVert[v]] = newVerttoOldVert[tree[v]];
-				}
-			}
-		}
-		
-		return treeInputG;
+		return false;
 	}
 	
 	// rounds n up to the nearest power of 2
@@ -456,7 +429,7 @@ public class NegativeWeightSSSP {
 			phi_2 = addPhi(phi_1, phi);
 			
 			if (CHECKS) {
-				if (hasNegativeEdges(g_B_Esep, phi_2)) {
+				if (hasNegativeEdges(g_B_Esep, phi_2, 0)) {
 					throw new Exception("FixDAGEdges failed.");
 				}
 			}
@@ -468,7 +441,7 @@ public class NegativeWeightSSSP {
 		int[] phi_3 = addPhi(phi_2, phi_prime);
 		
 		if (CHECKS) {
-			if (hasNegativeEdges(g_B_phi2, phi_prime)) {
+			if (hasNegativeEdges(g_B_phi2, phi_prime, 0)) {
 				throw new Exception("ElimNeg failed.");
 			}
 		}
@@ -476,10 +449,10 @@ public class NegativeWeightSSSP {
 		return phi_3;
 	}
 	
-	public static boolean hasNegativeEdges(Graph g, int[] phi) {
-		for (int u = 0; u < g.v_max; u++) {
+	public static boolean hasNegativeEdges(Graph g, int[] phi, int B) {
+		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
-				if (g.weights[u][i] + phi[u] - phi[g.adjacencyList[u][i]] < 0) {
+				if (g.weights[u][i] + phi[u] - phi[g.adjacencyList[u][i]] < -1 * B) {
 					return true;
 				}
 			}
@@ -487,6 +460,7 @@ public class NegativeWeightSSSP {
 		
 		return false;
 	}
+	
 	
 	/*
 	 * Creates G^B_phi = (V, E, w^B_phi), where 
@@ -548,6 +522,7 @@ public class NegativeWeightSSSP {
 		return edgesBetweenSCCs;
 	}
 	
+	
 	public static int[] getVertexToSCCMap(ArrayList<ArrayList<Integer>> SCCs, int numVertices) {
 		int[] vertexToSCCMap = new int[numVertices];
 		for (int i = 0; i < SCCs.size(); i++) {
@@ -558,6 +533,7 @@ public class NegativeWeightSSSP {
 		
 		return vertexToSCCMap;
 	}
+
 
 	public static int[] addPhi(int[] phi_1, int[] phi_2) throws Exception {
 		int len = phi_1.length;
@@ -573,6 +549,7 @@ public class NegativeWeightSSSP {
 		
 		return newPhi;
 	}
+	
 	
 	public static int[] FixDAGEdges(Graph g, ArrayList<ArrayList<Integer>> SCCs, int[] vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
 		int n = SCCs.size();
@@ -606,6 +583,7 @@ public class NegativeWeightSSSP {
 	}
 	
 	// returns the adjacency list for the DAG where every SCC is viewed as a single vertex
+	
 	public static ArrayList<Integer>[] createSCCAdjList(ArrayList<ArrayList<Integer>> SCCs, int[] vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
 		@SuppressWarnings("unchecked")
 		ArrayList<Integer>[] SCCAdjList = new ArrayList[SCCs.size()];
@@ -625,6 +603,7 @@ public class NegativeWeightSSSP {
 		
 		return SCCAdjList;
 	}
+	
 	
 	/*
 	 * Input: DAG
@@ -656,6 +635,7 @@ public class NegativeWeightSSSP {
         return topOrdering;
 	}
 	
+	
 	public static void topSortUtil(int u, boolean[] visited, Stack<Integer> stack, ArrayList<Integer>[] adjList) {
 		visited[u] = true;
 		
@@ -667,6 +647,7 @@ public class NegativeWeightSSSP {
 
 		stack.push(u);
 	}
+	
 	
 	/*
 	 * ElimNeg takes as input a graph G = (V,E,w) in which all vertices have constant out-degree. 
@@ -769,12 +750,13 @@ public class NegativeWeightSSSP {
 		return Gs;
 	}
 	
+	
 	/*
 	 * Let the output be int[] out. 
 	 * For vertex i, out[i] = parent of vertex i in the shortest path tree in g from s.
 	 * out[i] = -1 indicates that vertex i has no parent in the tree.
 	 */
-	public static int[] getShortestPathTree(Graph g, int s) {		
+	public static int[] getShortestPathTree(Graph g, int s) throws Exception {	
 		Set<Integer> settled = new HashSet<Integer>();
 	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
 		int[] dist = new int[g.v_max];
@@ -794,25 +776,26 @@ public class NegativeWeightSSSP {
             }
 
             int u = pq.remove().node;
-
+  
             if (settled.contains(u)) {
                 continue;
             }
 
             settled.add(u);
             updateTreeNeighbors(g, u, tree, settled, pq, dist);
-        }
+        }       
         
         return tree;
 	}
 	
 	
-	public static void updateTreeNeighbors(Graph g, int u, int[] tree, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist) {
+	public static void updateTreeNeighbors(Graph g, int u, int[] tree, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist) throws Exception {
         for (int i = 0; i < g.adjacencyList[u].length; i++) {
         	int v = g.adjacencyList[u][i];
         	
             if (!settled.contains(v)) {
-                int newDistance = dist[u] + g.weights[u][i];
+            	int weight = g.weights[u][i];
+                int newDistance = dist[u] + weight;
 
                 if (newDistance < dist[v]) {
                     dist[v] = newDistance;
