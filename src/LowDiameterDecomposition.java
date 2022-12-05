@@ -12,26 +12,6 @@ import org.apache.commons.rng.simple.RandomSource;
 public class LowDiameterDecomposition {
 
 	public static void main(String[] args) throws Exception {
-//		Graph g = new Graph(12, true);
-//		g.addEdge(0, 1, 1);
-//	    g.addEdge(1, 2, 1);
-//	    g.addEdge(2, 3, 1);
-//	    g.addEdge(3, 4, 1);
-//	    g.addEdge(4, 5, 1);
-//	    g.addEdge(5, 0, 1);
-//	    
-//	    g.addEdge(6, 7, 1);
-//	    g.addEdge(7, 8, 1);
-//	    g.addEdge(8, 9, 1);
-//	    g.addEdge(9, 10, 1);
-//	    g.addEdge(10, 11, 1);
-//	    g.addEdge(11, 6, 1);
-//		
-//		ArrayList<int[]> edges = LDD(g, 6);
-//		
-//		for (int[] edge : edges) {
-//			System.out.println(edge[0] + " " + edge[1]);
-//		}
 	}
 	
 	// OUTPUT: A set of edges e_sep with the following guarantees:
@@ -41,6 +21,8 @@ public class LowDiameterDecomposition {
 	// guaranteed to be independent.
 	// Each int[] in the output ArrayList has size two and represents an edge (int[0], int[1])
 	public static ArrayList<int[]> LDD(Graph g, int d) throws Exception {
+		// System.out.println("Size: " + g.n);
+		
 		ArrayList<int[]> output = new ArrayList<int[]>();
 		if (g.n <= 1) {
 			return output;
@@ -101,26 +83,42 @@ public class LowDiameterDecomposition {
 	}
 	
 	
-	public static ArrayList<int[]> RandomTrim(Graph g, Graph g_rev, int s, int d) throws Exception {
+	public static ArrayList<int[]> RandomTrim(Graph g, Graph g_rev, int s, int d) throws Exception {	
 		ArrayList<int[]> e_sep = new ArrayList<int[]>();
+		
+		if (Integer.MAX_VALUE / 4 <= d) {
+			return e_sep;
+		}
 
 		int[] dist = Dijkstra(g, s);
 		int[] dist_rev = Dijkstra(g_rev, s);
 		
-		boolean alreadyWDiam4D = true;
+		int numDistOver4D = 0;
+		int over4DVert = -1;
+		
 		ArrayList<Integer> v_far = new ArrayList<Integer>();
 		for (int v : g.vertices) {
 			if (Math.max(dist[v], dist_rev[v]) > 2 * d) {
 				v_far.add(v);
 				
 				if (Math.max(dist[v], dist_rev[v]) > 4 * d) {
-					alreadyWDiam4D = false;
+					numDistOver4D++;
+					over4DVert = v;
 				}
 			}
 		}
 		
 		// base case
-		if (alreadyWDiam4D) {
+		if (numDistOver4D <= 1) {
+			// already essentially a SCC of low diameter other than one vertex
+			// just add the edges coming out of over4DVert and nothing else
+			if (numDistOver4D == 1) {
+				for (int v : g.adjacencyList[over4DVert]) {
+					int[] edge = {over4DVert, v};
+					e_sep.add(edge);
+				}
+			}			
+			
 			return e_sep;
 		}
 		
@@ -297,7 +295,8 @@ public class LowDiameterDecomposition {
         	if (finished && finished_rev) {
         		// case 1
         		if (j == -1 || j_rev == -1) {
-        			throw new Exception("LayerRange in CoreOrLayerRange did not find a satisfying i.");
+        			int[] output = {2, (int) Math.ceil(constant)};
+        			return output;
         		}
         		int[] output = {1, Math.max(j, j_rev)};
         		return output;
@@ -376,35 +375,36 @@ public class LowDiameterDecomposition {
 	//	– if Condition = 2 then n_G(s, i) ≤ 2n and i ≥ D/(3lgn); moreover, Vol_G(s, i) and
 	//	Vol_G(s, i − ⌈D/(3lgn)⌉) are in the same canonical range.
 	
-	public static int[] LayerRange(Graph g, int s, int d) throws Exception {
-		// variable i in the paper
-		// elts are int[], where int[0] is the farthest distance seen and int[1] is the value of Vol_G(s, int[0])
-		// last int[0] is the farthest distance seen
-		ArrayList<int[]> farthestDistancesSeen = new ArrayList<int[]>();
-		
-		double constant = d / (3.0 * Math.log(g.n));
-		boolean[] settled = new boolean[g.v_max];
-	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
-		int[] dist = new int[g.v_max];
-		init(g, pq, dist, s);
- 
-		int numSettled = 0;
-        while (numSettled != g.n) {
-        	int[] result = oneIterationLayerRange(g, pq, settled, numSettled, farthestDistancesSeen, constant, dist, d);
-        	
-        	if (result != null) {
-        		return result;
-        	}
-        	
-        	numSettled++;
-        }
-        
-        throw new Exception("Layer range did not find a satisfying i.");
-	}
+//	public static int[] LayerRange(Graph g, int s, int d) throws Exception {
+//		// variable i in the paper
+//		// elts are int[], where int[0] is the farthest distance seen and int[1] is the value of Vol_G(s, int[0])
+//		// last int[0] is the farthest distance seen
+//		ArrayList<int[]> farthestDistancesSeen = new ArrayList<int[]>();
+//		
+//		double constant = d / (3.0 * Math.log(g.n));
+//		boolean[] settled = new boolean[g.v_max];
+//	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
+//		int[] dist = new int[g.v_max];
+//		init(g, pq, dist, s);
+// 
+//		int numSettled = 0;
+//        while (numSettled != g.n) {
+//        	int[] result = oneIterationLayerRange(g, pq, settled, numSettled, farthestDistancesSeen, constant, dist, d);
+//        	
+//        	if (result != null) {
+//        		return result;
+//        	}
+//        	
+//        	numSettled++;
+//        }
+//        
+//        throw new Exception("Layer range did not find a satisfying i.");
+//	}
 	
 	
 	
-	public static int[] oneIterationLayerRange(Graph g, PriorityQueue<Node> pq, boolean[] settled, int numSettled, ArrayList<int[]> farthestDistancesSeen, double constant, int[] dist, int d) throws Exception {
+	public static int[] oneIterationLayerRange(Graph g, PriorityQueue<Node> pq, boolean[] settled, 
+			int numSettled, ArrayList<int[]> farthestDistancesSeen, double constant, int[] dist, int d) throws Exception {
 		if (pq.isEmpty()) {
 			/*
 			 * Nothing left to search.

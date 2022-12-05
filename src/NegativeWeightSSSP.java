@@ -10,6 +10,7 @@ public class NegativeWeightSSSP {
 	
 	public static double startTime; // in ms
 	public static final boolean CHECKS = true;
+	public static final boolean WITHLDD = true;
 
 	public static void main(String[] args) throws Exception {
 	    String fileName = "USA-small";
@@ -61,9 +62,9 @@ public class NegativeWeightSSSP {
 			
 			if (!edge_exists[u][v]) {
 				edges[u].add(v);
-				if (Math.random() < .05) {
-					// weights[u].add(-1 * weight);
-					weights[u].add(-1);
+				if (Math.random() < .01) {
+					weights[u].add(-1 * weight);
+					// weights[u].add(-1);
 				} else {
 					weights[u].add(weight);
 				}
@@ -406,12 +407,16 @@ public class NegativeWeightSSSP {
 		int[] phi_2 = new int[g.v_max];
 		
 		if (delta > 2) { // base case
-			// double d = delta / 2.0;
-			// Graph g_B_nneg = createModifiedGB(g, B, true, null, null);
+			double d = delta / 2.0;
+			Graph g_B_nneg = createModifiedGB(g, B, true, null, null);
 			
 			// phase 0
-			// ArrayList<int[]> E_sep = LowDiameterDecomposition.LDD(g_B_nneg, (int) (d * B));
-			ArrayList<int[]> E_sep = new ArrayList<int[]>();
+			ArrayList<int[]> E_sep;
+			if (WITHLDD) {
+				E_sep = SCCLDD(g_B_nneg, (int) (4 * d * B));
+			} else {
+				E_sep = new ArrayList<int[]>();
+			}
 			
 			HashSet<int[]> E_sep_hash = new HashSet<int[]>(E_sep);
 			Graph g_B_Esep = createModifiedGB(g, B, false, E_sep_hash, null);
@@ -449,6 +454,90 @@ public class NegativeWeightSSSP {
 		return phi_3;
 	}
 	
+	public static ArrayList<int[]> SCCLDD(Graph g, int diameter) throws Exception {
+		// We will only run LDD on the SCCs with large diameter.
+		
+		ArrayList<ArrayList<Integer>> SCCs = g.SCC();
+		ArrayList<int[]> E_sep = new ArrayList<int[]>();
+		
+		for (ArrayList<Integer> SCC : SCCs) {
+			if (SCC.size() > 1) {
+				Graph SCCSubgraph = new Graph(g.v_max, false);
+				SCCSubgraph.addVertices(SCC);
+				
+				HashSet<Integer> SCCVerts = new HashSet<>(SCC);
+				
+				for (int v : SCC) {
+					ArrayList<Integer> outVertices = new ArrayList<Integer>();
+					ArrayList<Integer> weights = new ArrayList<Integer>();
+					
+					for (int i = 0 ; i < g.adjacencyList[v].length; i++) {
+						if (SCCVerts.contains(g.adjacencyList[v][i])) {
+							outVertices.add(g.adjacencyList[v][i]);
+							weights.add(g.weights[v][i]);
+						}
+					}
+					
+					SCCSubgraph.addEdges(v, LowDiameterDecomposition.listToArr(outVertices), LowDiameterDecomposition.listToArr(weights));
+				}
+				
+				int src = SCC.get((int) Math.random() * SCC.size());				
+				if (hasLargeDiameter(SCCSubgraph, src, diameter)) {
+					E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph, diameter));
+				}
+			}
+		}
+		
+		return E_sep;
+	}
+	
+	public static boolean hasLargeDiameter(Graph g, int s, int diameter) {		
+		boolean[] settled = new boolean[g.v_max];
+		int numSettled = 0;
+	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
+		int[] dist = new int[g.v_max];
+		for (int i = 0; i < g.v_max; i++) {
+            dist[i] = Integer.MAX_VALUE;
+        }
+        pq.add(new Node(s, 0));
+        dist[s] = 0;
+ 
+        while (numSettled != g.n) {
+            if (pq.isEmpty()) {
+                return false;
+            }
+
+            int u = pq.remove().node;
+
+            if (settled[u]) {
+                continue;
+            }
+            
+            if (dist[u] > diameter) {
+            	return true;
+            }
+
+            settled[u] = true;
+            numSettled++;
+            
+            for (int i = 0; i < g.adjacencyList[u].length; i++) {
+            	int v = g.adjacencyList[u][i];
+            	
+                if (!settled[v]) {
+                    int newDistance = dist[u] + g.weights[u][i];
+
+                    if (newDistance < dist[v]) {
+                        dist[v] = newDistance;
+                    }
+                    
+                    pq.add(new Node(v, dist[v]));
+                }
+            }
+        }
+        
+        return false;
+	}
+	
 	public static boolean hasNegativeEdges(Graph g, int[] phi, int B) {
 		for (int u : g.vertices) {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
@@ -460,7 +549,6 @@ public class NegativeWeightSSSP {
 		
 		return false;
 	}
-	
 	
 	/*
 	 * Creates G^B_phi = (V, E, w^B_phi), where 

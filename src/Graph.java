@@ -93,8 +93,8 @@ public class Graph {
 		}
 	}
 	
-	// SCC only run on graphs where n == v_max, needs to create mapping from vertices to [n] first to work
 	// Runs Tarjan's Algorithm for finding SCCs
+	// SCC only run on graphs where n == v_max, so needs to create mapping from vertices to [n] first to work
 	ArrayList<ArrayList<Integer>> SCC() {
 		int[] vertsToN = new int[v_max];
 		int[] NtoVerts = new int[n];
