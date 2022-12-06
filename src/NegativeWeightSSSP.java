@@ -9,8 +9,8 @@ import java.util.Stack;
 public class NegativeWeightSSSP {
 	
 	public static double startTime; // in ms
-	public static final boolean CHECKS = true;
-	public static final boolean WITHLDD = true;
+	public static final boolean CHECKS = false;
+	public static final boolean WITHLDD = false;
 
 	public static void main(String[] args) throws Exception {
 	    String fileName = "USA-small";
@@ -19,28 +19,54 @@ public class NegativeWeightSSSP {
 		Graph g_in = readInput(fileName);
 		Graph g = getConnectedSubgraph(g_in, src);
 
-		while (g.hasNegCycle() || g.hasNoNegativeEdgeWeights()) {
+		while (g.hasNoNegativeEdgeWeights()) {
 			g_in = readInput(fileName);
 			g = getConnectedSubgraph(g_in, src);
 		}
-		
-		System.out.println("Obtained graph.");
 		
 		runBellmanFord(g);
 		
 		int[] tree = bitScaling(g, src);
 		
-		System.out.println();
-		for (int v : g.vertices) {
-			System.out.println("Parent of vertex " + v + ": " + tree[v]);
-		}
+//		System.out.println();
+//		for (int v : g.vertices) {
+//			System.out.println("Parent of vertex " + v + ": " + tree[v]);
+//		}
 	}
 	
 	@SuppressWarnings("unchecked")
 	public static Graph readInput(String fileName) throws Exception {
 		BufferedReader f = new BufferedReader(new FileReader(fileName));
 		
-		int g_size = Integer.parseInt(f.readLine());
+		String line = f.readLine();
+		int g_size = -1;
+		int maxWeight = 0;
+		while (line != null) {
+			String[] arr = line.split(" ");
+			
+			int u = Integer.parseInt(arr[1]);
+			int v = Integer.parseInt(arr[2]);
+			int weight = Integer.parseInt(arr[3]);
+			
+			if (Math.max(u, v) > g_size) {
+				g_size = Math.max(u, v);
+			}
+			if (weight > maxWeight) {
+				maxWeight = weight;
+			}
+			
+			line = f.readLine();
+		}
+		g_size++;
+		f.close();
+		
+		int[] phi = new int[g_size];
+		for (int v = 0; v < g_size; v++) {
+			phi[v] = (int) (Math.random() * maxWeight);
+		}
+		
+		f = new BufferedReader(new FileReader(fileName));
+		
 		Graph g = new Graph(g_size, true);
 		ArrayList<Integer>[] edges = new ArrayList[g_size];
 		ArrayList<Integer>[] weights = new ArrayList[g_size];
@@ -52,7 +78,7 @@ public class NegativeWeightSSSP {
 		
 		boolean[][] edge_exists = new boolean[g.v_max][g.v_max];
 		
-		String line = f.readLine();
+		line = f.readLine();
 		while (line != null) {
 			String[] arr = line.split(" ");
 			
@@ -62,12 +88,14 @@ public class NegativeWeightSSSP {
 			
 			if (!edge_exists[u][v]) {
 				edges[u].add(v);
-				if (Math.random() < .01) {
-					weights[u].add(-1 * weight);
-					// weights[u].add(-1);
-				} else {
-					weights[u].add(weight);
-				}
+				weights[u].add(weight + phi[u] - phi[v]);
+				
+//				if (Math.random() < .03) {
+//					// weights[u].add(-1 * weight);
+//					weights[u].add(-1);
+//				} else {
+//					weights[u].add(weight);
+//				}
 				// weights[u].add(weight);
 				
 				edge_exists[u][v] = true;
@@ -481,7 +509,7 @@ public class NegativeWeightSSSP {
 					SCCSubgraph.addEdges(v, LowDiameterDecomposition.listToArr(outVertices), LowDiameterDecomposition.listToArr(weights));
 				}
 				
-				int src = SCC.get((int) Math.random() * SCC.size());				
+				int src = SCC.get((int) (Math.random() * SCC.size()));				
 				if (hasLargeDiameter(SCCSubgraph, src, diameter)) {
 					E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph, diameter));
 				}
