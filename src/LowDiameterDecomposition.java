@@ -23,13 +23,27 @@ public class LowDiameterDecomposition {
 	public static ArrayList<int[]> LDD(Graph g, int d) throws Exception {
 		// System.out.println("Size: " + g.n);
 		
-		ArrayList<int[]> output = new ArrayList<int[]>();
 		if (g.n <= 1) {
-			return output;
+			return new ArrayList<int[]>();
 		}
 		
-		int s = g.vertices.get(0);
 		Graph g_rev = createGRev(g);
+		
+		// pick a good, well-connected starting vertex s
+		int s = g.vertices.get(0);
+		boolean foundGoodS = false;
+		for (int v : g.vertices) {
+			if (g.adjacencyList[v].length >= 1 || g_rev.adjacencyList[v].length >= 1) {
+				s = v;
+				foundGoodS = true;
+				break;
+			}
+		}
+		
+		if (!foundGoodS) {
+			return new ArrayList<int[]>();
+		}
+
 		int[] condAndi_max = CoreOrLayerRange(g, g_rev, s, d);
 		if (condAndi_max[0] == 1) {
 			return RandomTrim(g, g_rev, s, d);

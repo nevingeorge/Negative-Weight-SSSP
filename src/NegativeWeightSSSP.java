@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.PriorityQueue;
+import java.util.Random;
 import java.util.Set;
 import java.util.Stack;
 
@@ -13,9 +14,11 @@ public class NegativeWeightSSSP {
 	public static final boolean CHECKS = true;
 	public static final boolean WITHLDD = true;
 	public static final int WEIGHTMETHOD = 1;
+	public static final int MAXVERTEX = 1500;
+	public static final int RANDOMSEED = 100;
 
-	public static void main(String[] args) throws Exception {
-		String fileName = "USA-very-small";
+	public static void main(String[] args) throws Exception {		
+		String fileName = "USA-small";
 		int src = 1;
 		
 		Graph g_in = readInput(fileName);
@@ -44,9 +47,12 @@ public class NegativeWeightSSSP {
 		
 		int[] phi = null;
 		if (WEIGHTMETHOD == 1) {
+			Random random = new Random();
+			random.setSeed(RANDOMSEED);
 			phi = new int[g_size];
+			
 			for (int v = 0; v < g_size; v++) {
-				phi[v] = (int) (Math.random() * maxWeight);
+				phi[v] = (int) (random.nextDouble() * maxWeight);
 			}
 		}
 		
@@ -70,6 +76,11 @@ public class NegativeWeightSSSP {
 			int u = Integer.parseInt(arr[1]);
 			int v = Integer.parseInt(arr[2]);
 			int weight = Integer.parseInt(arr[3]);
+			
+			if (u > MAXVERTEX || v > MAXVERTEX) {
+				line = f.readLine();
+				continue;
+			}
 			
 			if (!edge_exists[u][v]) {
 				edges[u].add(v);
@@ -120,6 +131,11 @@ public class NegativeWeightSSSP {
 			int u = Integer.parseInt(arr[1]);
 			int v = Integer.parseInt(arr[2]);
 			int weight = Integer.parseInt(arr[3]);
+			
+			if (u > MAXVERTEX || v > MAXVERTEX) {
+				line = f.readLine();
+				continue;
+			}
 
 			if (Math.max(u, v) > g_size) {
 				g_size = Math.max(u, v);
@@ -510,15 +526,24 @@ public class NegativeWeightSSSP {
 					
 					for (int i = 0 ; i < g.adjacencyList[v].length; i++) {
 						if (SCCVerts.contains(g.adjacencyList[v][i])) {
-							outVertices.add(g.adjacencyList[v][i]);
-							weights.add(g.weights[v][i]);
+							if (g.weights[v][i] > diameter / 2) {
+								// edge is too big, likely would be added to E_sep
+								int[] edge = {v, g.adjacencyList[v][i]};
+								E_sep.add(edge);
+							} else {
+								outVertices.add(g.adjacencyList[v][i]);
+								weights.add(g.weights[v][i]);
+							}
 						}
 					}
 					
 					SCCSubgraph.addEdges(v, LowDiameterDecomposition.listToArr(outVertices), LowDiameterDecomposition.listToArr(weights));
 				}
 				
-				int src = SCC.get((int) (Math.random() * SCC.size()));				
+				Random random = new Random();
+				random.setSeed(RANDOMSEED);
+				
+				int src = SCC.get((int) (random.nextDouble() * SCC.size()));				
 				if (hasLargeDiameter(SCCSubgraph, src, diameter)) {
 					E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph, diameter));
 				}
@@ -574,6 +599,7 @@ public class NegativeWeightSSSP {
         
         return false;
 	}
+	
 	
 	public static boolean hasNegativeEdges(Graph g, int[] phi, int B) {
 		for (int u : g.vertices) {
