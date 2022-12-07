@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.PriorityQueue;
@@ -9,11 +10,12 @@ import java.util.Stack;
 public class NegativeWeightSSSP {
 	
 	public static double startTime; // in ms
-	public static final boolean CHECKS = false;
-	public static final boolean WITHLDD = false;
+	public static final boolean CHECKS = true;
+	public static final boolean WITHLDD = true;
+	public static final int WEIGHTMETHOD = 1;
 
 	public static void main(String[] args) throws Exception {
-	    String fileName = "USA-small";
+		String fileName = "USA-very-small";
 		int src = 1;
 		
 		Graph g_in = readInput(fileName);
@@ -28,44 +30,27 @@ public class NegativeWeightSSSP {
 		
 		int[] tree = bitScaling(g, src);
 		
-//		System.out.println();
-//		for (int v : g.vertices) {
-//			System.out.println("Parent of vertex " + v + ": " + tree[v]);
-//		}
+		System.out.println();
+		for (int v : g.vertices) {
+			System.out.println("Parent of vertex " + v + ": " + tree[v]);
+		}
 	}
 	
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings("all")
 	public static Graph readInput(String fileName) throws Exception {
+		int[] sizeWeight = getMaxSizeWeight(fileName);
+		int g_size = sizeWeight[0];
+		int maxWeight = sizeWeight[1];
+		
+		int[] phi = null;
+		if (WEIGHTMETHOD == 1) {
+			phi = new int[g_size];
+			for (int v = 0; v < g_size; v++) {
+				phi[v] = (int) (Math.random() * maxWeight);
+			}
+		}
+		
 		BufferedReader f = new BufferedReader(new FileReader(fileName));
-		
-		String line = f.readLine();
-		int g_size = -1;
-		int maxWeight = 0;
-		while (line != null) {
-			String[] arr = line.split(" ");
-			
-			int u = Integer.parseInt(arr[1]);
-			int v = Integer.parseInt(arr[2]);
-			int weight = Integer.parseInt(arr[3]);
-			
-			if (Math.max(u, v) > g_size) {
-				g_size = Math.max(u, v);
-			}
-			if (weight > maxWeight) {
-				maxWeight = weight;
-			}
-			
-			line = f.readLine();
-		}
-		g_size++;
-		f.close();
-		
-		int[] phi = new int[g_size];
-		for (int v = 0; v < g_size; v++) {
-			phi[v] = (int) (Math.random() * maxWeight);
-		}
-		
-		f = new BufferedReader(new FileReader(fileName));
 		
 		Graph g = new Graph(g_size, true);
 		ArrayList<Integer>[] edges = new ArrayList[g_size];
@@ -78,7 +63,7 @@ public class NegativeWeightSSSP {
 		
 		boolean[][] edge_exists = new boolean[g.v_max][g.v_max];
 		
-		line = f.readLine();
+		String line = f.readLine();
 		while (line != null) {
 			String[] arr = line.split(" ");
 			
@@ -88,16 +73,7 @@ public class NegativeWeightSSSP {
 			
 			if (!edge_exists[u][v]) {
 				edges[u].add(v);
-				weights[u].add(weight + phi[u] - phi[v]);
-				
-//				if (Math.random() < .03) {
-//					// weights[u].add(-1 * weight);
-//					weights[u].add(-1);
-//				} else {
-//					weights[u].add(weight);
-//				}
-				// weights[u].add(weight);
-				
+				weights[u].add(getWeight(weight, u, v, phi));
 				edge_exists[u][v] = true;
 			}
 			
@@ -111,6 +87,54 @@ public class NegativeWeightSSSP {
 		g.initNullAdjListElts();
 		
 		return g;
+	}
+	
+	// returns the weight for a given edge depending on the desired scheme of creating negative edges
+	@SuppressWarnings("all")
+	public static int getWeight(int weight, int u, int v, int[] phi) {
+		if (WEIGHTMETHOD == 1) {
+			return weight + phi[u] - phi[v];
+		} else if (WEIGHTMETHOD == 2) {
+			if (Math.random() < .03) {
+				return -1;
+			}
+		} else if (WEIGHTMETHOD == 3) {
+			if (Math.random() < .03) {
+				return -1 * weight;
+			}
+		}
+		
+		return weight;
+	}
+	
+	// returns an int[2], where after reading fileName, int[0] = largest vertex number, int[1] = largest weight
+	public static int[] getMaxSizeWeight(String fileName) throws IOException {
+		BufferedReader f = new BufferedReader(new FileReader(fileName));
+		String line = f.readLine();
+		int g_size = -1;
+		int maxWeight = 0;
+		
+		while (line != null) {
+			String[] arr = line.split(" ");
+			
+			int u = Integer.parseInt(arr[1]);
+			int v = Integer.parseInt(arr[2]);
+			int weight = Integer.parseInt(arr[3]);
+
+			if (Math.max(u, v) > g_size) {
+				g_size = Math.max(u, v);
+			}
+			if (weight > maxWeight) {
+				maxWeight = weight;
+			}
+			
+			line = f.readLine();
+		}
+		g_size++;
+		f.close();
+		
+		int[] largestSizeWeight = {g_size, maxWeight};
+		return largestSizeWeight;
 	}
 	
 	public static Graph getConnectedSubgraph(Graph g, int src) throws Exception {
@@ -194,10 +218,8 @@ public class NegativeWeightSSSP {
 				
 				for (int i = 0; i < numOutEdges; i++) {
 					int roundedWeight = phi[u] - phi[g.adjacencyList[u][i]] + (int) Math.ceil(g.weights[u][i] / (double) precision);
-					if (CHECKS) {
-						if (roundedWeight < -1) {
-							throw new Exception("Bit scaling produced an edge of weight less than -1.");
-						}
+					if (CHECKS && roundedWeight < -1) {
+						throw new Exception("Bit scaling produced an edge of weight less than -1.");
 					}
 					
 					edges[i] = g.adjacencyList[u][i];
@@ -245,11 +267,9 @@ public class NegativeWeightSSSP {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
 				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]];
 				
-				if (CHECKS) {
-					if (g.weights[u][i] < 0) {
-						throw new Exception("After applying the phi outputted from running the bit "
-								+ "scaling algorithm and SPMain, there exists an edge with negative weight.");
-					}
+				if (CHECKS && g.weights[u][i] < 0) {
+					throw new Exception("After applying the phi outputted from running the bit "
+							+ "scaling algorithm and SPMain, there exists an edge with negative weight.");
 				}
 			}
 		}
@@ -263,9 +283,8 @@ public class NegativeWeightSSSP {
 		return tree;
 	}
 	
-	public static void verifyTree(Graph g, int[] tree, int[] dist, int src) throws Exception {
-		// verify that tree is a valid tree
-		
+	// verifies whether tree is a valid tree
+	public static void verifyTree(Graph g, int[] tree, int[] dist, int src) throws Exception {	
 		// construct the graph with all the vertices and only the edges in the shortest path tree
 		boolean[][] adjList = new boolean[g.v_max][g.v_max];
 		for (int u : g.vertices) {
@@ -339,10 +358,8 @@ public class NegativeWeightSSSP {
 			Graph g_phi = createModifiedGB(g, 0, false, null, phi);
 			int[] phi_i = ScaleDown(g_phi, g.n, B / (int) Math.pow(2, i));
 			
-			if (CHECKS) {
-				if (hasNegativeEdges(g_phi, phi_i, B / (int) Math.pow(2, i))) {
-					throw new Exception("ScaleDown failed.");
-				}
+			if (CHECKS && hasNegativeEdges(g_phi, phi_i, B / (int) Math.pow(2, i))) {
+				throw new Exception("ScaleDown failed.");
 			}
 			
 			phi = addPhi(phi, phi_i);
@@ -353,21 +370,17 @@ public class NegativeWeightSSSP {
 			for (int i = 0; i < g.adjacencyList[u].length; i++) {
 				g.weights[u][i] += phi[u] - phi[g.adjacencyList[u][i]] + 1;
 				
-				if (CHECKS) {
-					if (g.weights[u][i] < 0) {
-						throw new Exception("After applying the phi outputted from SPMain, "
-								+ "there exists an edge with negative weight.");
-					}
+				if (CHECKS && g.weights[u][i] < 0) {
+					throw new Exception("After applying the phi outputted from SPMain, "
+							+ "there exists an edge with negative weight.");
 				}
 			}
 		}
 		
 		int[] tree = getShortestPathTree(g, s);
 		
-		if (CHECKS) {
-			if (invalidTree(g, s, tree)) {
-				throw new Exception("SPMain get shortest path tree failed.");
-			}
+		if (CHECKS && invalidTree(g, s, tree)) {
+			throw new Exception("SPMain get shortest path tree failed.");
 		}
 		
 		return tree;
@@ -461,10 +474,8 @@ public class NegativeWeightSSSP {
 			int[] phi = FixDAGEdges(g_B_E_sep_phi1, SCCs, vertexToSCCMap, edgesBetweenSCCs);
 			phi_2 = addPhi(phi_1, phi);
 			
-			if (CHECKS) {
-				if (hasNegativeEdges(g_B_Esep, phi_2, 0)) {
-					throw new Exception("FixDAGEdges failed.");
-				}
+			if (CHECKS && hasNegativeEdges(g_B_Esep, phi_2, 0)) {
+				throw new Exception("FixDAGEdges failed.");
 			}
 		}
 		
@@ -473,10 +484,8 @@ public class NegativeWeightSSSP {
 		int[] phi_prime = ElimNeg(g_B_phi2);
 		int[] phi_3 = addPhi(phi_2, phi_prime);
 		
-		if (CHECKS) {
-			if (hasNegativeEdges(g_B_phi2, phi_prime, 0)) {
-				throw new Exception("ElimNeg failed.");
-			}
+		if (CHECKS && hasNegativeEdges(g_B_phi2, phi_prime, 0)) {
+			throw new Exception("ElimNeg failed.");
 		}
 		
 		return phi_3;
@@ -603,11 +612,9 @@ public class NegativeWeightSSSP {
 					if (weight < 0) {
 						weight += B;
 					}
-					
 					if (nneg) {
 						weight = Math.max(0, weight);
 					}
-					
 					if (phi != null) {
 						weight += phi[u] - phi[v];
 					}
@@ -637,8 +644,7 @@ public class NegativeWeightSSSP {
 		
 		return edgesBetweenSCCs;
 	}
-	
-	
+		
 	public static int[] getVertexToSCCMap(ArrayList<ArrayList<Integer>> SCCs, int numVertices) {
 		int[] vertexToSCCMap = new int[numVertices];
 		for (int i = 0; i < SCCs.size(); i++) {
@@ -646,10 +652,8 @@ public class NegativeWeightSSSP {
 				vertexToSCCMap[v] = i;
 			}
 		}
-		
 		return vertexToSCCMap;
 	}
-
 
 	public static int[] addPhi(int[] phi_1, int[] phi_2) throws Exception {
 		int len = phi_1.length;
@@ -662,10 +666,8 @@ public class NegativeWeightSSSP {
 		for (int i = 0; i < len; i++) {
 			newPhi[i] = phi_1[i] + phi_2[i];
 		}
-		
 		return newPhi;
 	}
-	
 	
 	public static int[] FixDAGEdges(Graph g, ArrayList<ArrayList<Integer>> SCCs, int[] vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
 		int n = SCCs.size();
@@ -699,7 +701,6 @@ public class NegativeWeightSSSP {
 	}
 	
 	// returns the adjacency list for the DAG where every SCC is viewed as a single vertex
-	
 	public static ArrayList<Integer>[] createSCCAdjList(ArrayList<ArrayList<Integer>> SCCs, int[] vertexToSCCMap, HashSet<int[]> edgesBetweenSCCs) {
 		@SuppressWarnings("unchecked")
 		ArrayList<Integer>[] SCCAdjList = new ArrayList[SCCs.size()];
@@ -719,7 +720,6 @@ public class NegativeWeightSSSP {
 		
 		return SCCAdjList;
 	}
-	
 	
 	/*
 	 * Input: DAG
@@ -751,7 +751,6 @@ public class NegativeWeightSSSP {
         return topOrdering;
 	}
 	
-	
 	public static void topSortUtil(int u, boolean[] visited, Stack<Integer> stack, ArrayList<Integer>[] adjList) {
 		visited[u] = true;
 		
@@ -760,10 +759,8 @@ public class NegativeWeightSSSP {
 				topSortUtil(v, visited, stack, adjList);
 			}
 		}
-
 		stack.push(u);
 	}
-	
 	
 	/*
 	 * ElimNeg takes as input a graph G = (V,E,w) in which all vertices have constant out-degree. 
@@ -865,8 +862,7 @@ public class NegativeWeightSSSP {
 		Gs.initNullAdjListElts();
 		return Gs;
 	}
-	
-	
+		
 	/*
 	 * Let the output be int[] out. 
 	 * For vertex i, out[i] = parent of vertex i in the shortest path tree in g from s.
@@ -903,7 +899,6 @@ public class NegativeWeightSSSP {
         
         return tree;
 	}
-	
 	
 	public static void updateTreeNeighbors(Graph g, int u, int[] tree, Set<Integer> settled, PriorityQueue<Node> pq, int[] dist) throws Exception {
         for (int i = 0; i < g.adjacencyList[u].length; i++) {
