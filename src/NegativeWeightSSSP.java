@@ -16,6 +16,7 @@ public class NegativeWeightSSSP {
 	public static final int WEIGHTMETHOD = 1;
 	public static final int MAXVERTEX = 1500;
 	public static final int RANDOMSEED = 100;
+	public static final boolean DISPLAYTREE = false;
 
 	public static void main(String[] args) throws Exception {		
 		String fileName = "USA-small";
@@ -33,9 +34,11 @@ public class NegativeWeightSSSP {
 		
 		int[] tree = bitScaling(g, src);
 		
-		System.out.println();
-		for (int v : g.vertices) {
-			System.out.println("Parent of vertex " + v + ": " + tree[v]);
+		if (DISPLAYTREE) {
+			System.out.println();
+			for (int v : g.vertices) {
+				System.out.println("Parent of vertex " + v + ": " + tree[v]);
+			}
 		}
 	}
 	
@@ -519,6 +522,7 @@ public class NegativeWeightSSSP {
 				SCCSubgraph.addVertices(SCC);
 				
 				HashSet<Integer> SCCVerts = new HashSet<>(SCC);
+				int numEdgesRemoved = 0;
 				
 				for (int v : SCC) {
 					ArrayList<Integer> outVertices = new ArrayList<Integer>();
@@ -530,6 +534,7 @@ public class NegativeWeightSSSP {
 								// edge is too big, likely would be added to E_sep
 								int[] edge = {v, g.adjacencyList[v][i]};
 								E_sep.add(edge);
+								numEdgesRemoved++;
 							} else {
 								outVertices.add(g.adjacencyList[v][i]);
 								weights.add(g.weights[v][i]);
@@ -537,15 +542,52 @@ public class NegativeWeightSSSP {
 						}
 					}
 					
-					SCCSubgraph.addEdges(v, LowDiameterDecomposition.listToArr(outVertices), LowDiameterDecomposition.listToArr(weights));
+					SCCSubgraph.addEdges(v, LowDiameterDecomposition.listToArr(outVertices), 
+							LowDiameterDecomposition.listToArr(weights));
 				}
+				SCCSubgraph.initNullAdjListElts();
 				
 				Random random = new Random();
 				random.setSeed(RANDOMSEED);
 				
-				int src = SCC.get((int) (random.nextDouble() * SCC.size()));				
-				if (hasLargeDiameter(SCCSubgraph, src, diameter)) {
-					E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph, diameter));
+				if (numEdgesRemoved > 0) {
+					// after removing edges, we need to recalculate the SCCs
+					ArrayList<ArrayList<Integer>> SCCAfterRemoved = SCCSubgraph.SCC();
+					
+					for (ArrayList<Integer> SCC_r : SCCAfterRemoved) {
+						if (SCC_r.size() > 1) {
+							Graph SCCSubgraph_r = new Graph(g.v_max, false);
+							SCCSubgraph_r.addVertices(SCC_r);
+							
+							HashSet<Integer> SCCVerts_r = new HashSet<>(SCC_r);
+
+							for (int v : SCC_r) {
+								ArrayList<Integer> outVertices_r = new ArrayList<Integer>();
+								ArrayList<Integer> weights_r = new ArrayList<Integer>();
+								
+								for (int i = 0 ; i < SCCSubgraph.adjacencyList[v].length; i++) {
+									if (SCCVerts_r.contains(SCCSubgraph.adjacencyList[v][i])) {
+										outVertices_r.add(SCCSubgraph.adjacencyList[v][i]);
+										weights_r.add(SCCSubgraph.weights[v][i]);
+									}
+								}
+								
+								SCCSubgraph_r.addEdges(v, LowDiameterDecomposition.listToArr(outVertices_r), 
+										LowDiameterDecomposition.listToArr(weights_r));
+							}
+							SCCSubgraph_r.initNullAdjListElts();
+							
+							int src = SCC_r.get((int) (random.nextDouble() * SCC_r.size()));				
+							if (hasLargeDiameter(SCCSubgraph_r, src, diameter)) {
+								E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph_r, diameter));
+							}
+						}
+					}
+				} else {
+					int src = SCC.get((int) (random.nextDouble() * SCC.size()));				
+					if (hasLargeDiameter(SCCSubgraph, src, diameter)) {
+						E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph, diameter));
+					}
 				}
 			}
 		}

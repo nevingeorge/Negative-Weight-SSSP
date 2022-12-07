@@ -21,7 +21,11 @@ public class LowDiameterDecomposition {
 	// guaranteed to be independent.
 	// Each int[] in the output ArrayList has size two and represents an edge (int[0], int[1])
 	public static ArrayList<int[]> LDD(Graph g, int d) throws Exception {
-		// System.out.println("Size: " + g.n);
+		System.out.println("Size: " + g.n);
+		
+		if (g.n == 205) {
+			System.out.println("here");
+		}
 		
 		if (g.n <= 1) {
 			return new ArrayList<int[]>();
@@ -145,13 +149,13 @@ public class LowDiameterDecomposition {
 		while (v != -1) {
 			int i_rnd = i_min + Math.min(GeometricSampler.of(RandomSource.MT.create(), calculateGeoProb(g.n, r)).sample(), r);
 			
-			if (dist[v] > 2 * d) {
+			if (dist_rev[v] > 2 * d) {
 				Graph gVMinusM = getSubgraph(g, m, true);
 				ArrayList<Integer> ball = volume(gVMinusM, v, i_rnd);
 				Graph GVMinusMSubGraph = getSubgraph(gVMinusM, ball, false);
 				e_sep = edgeUnion(e_sep, layer(gVMinusM, ball), LDD(GVMinusMSubGraph, d));
 				m = vertexUnion(m, ball);
-			} else if (dist_rev[v] > 2 * d) {
+			} else if (dist[v] > 2 * d) {
 				Graph gVMinusM_rev = getSubgraph(g_rev, m, true);
 				ArrayList<Integer> ball_rev = volume(gVMinusM_rev, v, i_rnd);
 				Graph GVMinusMSubGraph_rev = getSubgraph(gVMinusM_rev, ball_rev, false);
