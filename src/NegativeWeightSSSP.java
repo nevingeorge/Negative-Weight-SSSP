@@ -12,29 +12,34 @@ public class NegativeWeightSSSP {
 	
 	public static double startTime; // in ms
 	public static final boolean CHECKS = true;
-	public static final boolean WITHLDD = true;
-	public static final int WEIGHTMETHOD = 1;
-	public static final int MAXVERTEX = 1500;
-	public static final int RANDOMSEED = 100;
-	public static final boolean DISPLAYTREE = false;
+	public static final boolean WITH_LDD = false;
+	public static final int WEIGHT_METHOD = 1;
+	public static final int MAX_VERTEX = 2000;
+	public static final int RANDOM_SEED = 100;
+	public static final boolean DISPLAY_TREE = false;
+	public static final boolean INPUT_HAS_A = false;
+	public static final boolean PRINT_LDD_SIZE = false;
+	public static final boolean MAKE_CONNECTED = true;
 
 	public static void main(String[] args) throws Exception {		
-		String fileName = "USA-small";
-		int src = 1;
+		String fileName = "graph_1.txt";
+		int src = 0;
 		
 		Graph g_in = readInput(fileName);
 		Graph g = getConnectedSubgraph(g_in, src);
 
-		while (g.hasNoNegativeEdgeWeights()) {
+		while (g.hasNoNegativeEdgeWeights() || g.hasNegCycle()) {
 			g_in = readInput(fileName);
 			g = getConnectedSubgraph(g_in, src);
 		}
+		
+		System.out.println("Number of vertices: " + g.n);
 		
 		runBellmanFord(g);
 		
 		int[] tree = bitScaling(g, src);
 		
-		if (DISPLAYTREE) {
+		if (DISPLAY_TREE) {
 			System.out.println();
 			for (int v : g.vertices) {
 				System.out.println("Parent of vertex " + v + ": " + tree[v]);
@@ -49,19 +54,19 @@ public class NegativeWeightSSSP {
 		int maxWeight = sizeWeight[1];
 		
 		int[] phi = null;
-		if (WEIGHTMETHOD == 1) {
+		if (WEIGHT_METHOD == 1) {
 			Random random = new Random();
-			random.setSeed(RANDOMSEED);
+			random.setSeed(RANDOM_SEED);
 			phi = new int[g_size];
 			
 			for (int v = 0; v < g_size; v++) {
-				phi[v] = (int) (random.nextDouble() * maxWeight);
+				phi[v] = (int) (random.nextDouble() * maxWeight * 10);
 			}
 		}
 		
 		BufferedReader f = new BufferedReader(new FileReader(fileName));
 		
-		Graph g = new Graph(g_size, true);
+		Graph g = new Graph(g_size, false);
 		ArrayList<Integer>[] edges = new ArrayList[g_size];
 		ArrayList<Integer>[] weights = new ArrayList[g_size];
 		
@@ -74,26 +79,41 @@ public class NegativeWeightSSSP {
 		
 		String line = f.readLine();
 		while (line != null) {
-			String[] arr = line.split(" ");
+			int[] edge = getEdgeFromLine(line);
 			
-			int u = Integer.parseInt(arr[1]);
-			int v = Integer.parseInt(arr[2]);
-			int weight = Integer.parseInt(arr[3]);
-			
-			if (u > MAXVERTEX || v > MAXVERTEX) {
+			if (edge[0] > MAX_VERTEX || edge[1] > MAX_VERTEX) {
 				line = f.readLine();
 				continue;
 			}
+			if (!g.containsVertex[edge[0]]) {
+				g.addVertex(edge[0]);
+			}
+			if (!g.containsVertex[edge[1]]) {
+				g.addVertex(edge[1]);
+			}
 			
-			if (!edge_exists[u][v]) {
-				edges[u].add(v);
-				weights[u].add(getWeight(weight, u, v, phi));
-				edge_exists[u][v] = true;
+			if (!edge_exists[edge[0]][edge[1]]) {
+				edges[edge[0]].add(edge[1]);
+				weights[edge[0]].add(getWeight(edge[2], edge[0], edge[1], phi));
+				edge_exists[edge[0]][edge[1]] = true;
 			}
 			
 			line = f.readLine();
 		}
 		f.close();
+		
+		if (MAKE_CONNECTED) {
+			// connect vertex 0 to all other vertices with 0 edge weights
+			for (int v : g.vertices) {
+				edges[0].add(v);
+				weights[0].add(getWeight(0, 0, v, phi));
+				
+				edges[v].add(0);
+				weights[v].add(getWeight(0, v, 0, phi));
+			}
+			
+			g.addVertex(0);
+		}
 		
 		for (int i = 0; i < g_size; i++) {
 			g.addEdges(i, LowDiameterDecomposition.listToArr(edges[i]), LowDiameterDecomposition.listToArr(weights[i]));
@@ -103,16 +123,38 @@ public class NegativeWeightSSSP {
 		return g;
 	}
 	
+	// returns an int[3], where int[0] = u, int[1] = v, int[2] = weight
+	public static int[] getEdgeFromLine(String line) {
+		int u;
+		int v;
+		int weight;
+		
+		if (INPUT_HAS_A) {
+			String[] arr = line.split(" ");
+			u = Integer.parseInt(arr[1]);
+			v = Integer.parseInt(arr[2]);
+			weight = Integer.parseInt(arr[3]);
+		} else {
+			String[] arr = line.split(",");
+			u = Integer.parseInt(arr[0]);
+			v = Integer.parseInt(arr[1]);
+			weight = (int) Double.parseDouble(arr[2]);
+		}
+		
+		int[] out = {u, v, weight};
+		return out;
+	}
+	
 	// returns the weight for a given edge depending on the desired scheme of creating negative edges
 	@SuppressWarnings("all")
 	public static int getWeight(int weight, int u, int v, int[] phi) {
-		if (WEIGHTMETHOD == 1) {
+		if (WEIGHT_METHOD == 1) {
 			return weight + phi[u] - phi[v];
-		} else if (WEIGHTMETHOD == 2) {
+		} else if (WEIGHT_METHOD == 2) {
 			if (Math.random() < .03) {
 				return -1;
 			}
-		} else if (WEIGHTMETHOD == 3) {
+		} else if (WEIGHT_METHOD == 3) {
 			if (Math.random() < .03) {
 				return -1 * weight;
 			}
@@ -128,23 +170,19 @@ public class NegativeWeightSSSP {
 		int g_size = -1;
 		int maxWeight = 0;
 		
-		while (line != null) {
-			String[] arr = line.split(" ");
+		while (line != null) {	
+			int[] edge = getEdgeFromLine(line);
 			
-			int u = Integer.parseInt(arr[1]);
-			int v = Integer.parseInt(arr[2]);
-			int weight = Integer.parseInt(arr[3]);
-			
-			if (u > MAXVERTEX || v > MAXVERTEX) {
+			if (edge[0] > MAX_VERTEX || edge[1] > MAX_VERTEX) {
 				line = f.readLine();
 				continue;
 			}
 
-			if (Math.max(u, v) > g_size) {
-				g_size = Math.max(u, v);
+			if (Math.max(edge[0], edge[1]) > g_size) {
+				g_size = Math.max(edge[0], edge[1]);
 			}
-			if (weight > maxWeight) {
-				maxWeight = weight;
+			if (edge[2] > maxWeight) {
+				maxWeight = edge[2];
 			}
 			
 			line = f.readLine();
@@ -463,6 +501,11 @@ public class NegativeWeightSSSP {
 	 * 	algorithm does terminate, it always produces a correct output.
 	 */
 	public static int[] ScaleDown(Graph g, int delta, int B) throws Exception {
+		if (delta == 1 && B == 1024) {
+			System.out.println("here");
+		}
+		System.out.println(delta + " " + B);
+		
 		// if phi(x) == null, assume that phi(x) = 0
 		int[] phi_2 = new int[g.v_max];
 		
@@ -472,7 +515,7 @@ public class NegativeWeightSSSP {
 			
 			// phase 0
 			ArrayList<int[]> E_sep;
-			if (WITHLDD) {
+			if (WITH_LDD) {
 				E_sep = SCCLDD(g_B_nneg, (int) (4 * d * B));
 			} else {
 				E_sep = new ArrayList<int[]>();
@@ -548,7 +591,7 @@ public class NegativeWeightSSSP {
 				SCCSubgraph.initNullAdjListElts();
 				
 				Random random = new Random();
-				random.setSeed(RANDOMSEED);
+				random.setSeed(RANDOM_SEED);
 				
 				if (numEdgesRemoved > 0) {
 					// after removing edges, we need to recalculate the SCCs
