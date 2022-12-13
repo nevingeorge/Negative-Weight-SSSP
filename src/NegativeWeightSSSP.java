@@ -27,12 +27,13 @@ public class NegativeWeightSSSP {
 	public static boolean MAKE_CONNECTED;
 
 	public static void main(String[] args) throws Exception {		
-		System.out.println("Enter the input file name. Entering \"help\" will display instructions on the format of the input file.");
+		System.out.println("Enter the input file name. Entering \"info\" will print the contents of "
+				+ "README.md, which contains instructions on the required format of the input file.");
 		Scanner scan = new Scanner(System.in);
 		String fileName = scan.nextLine();
 		scan.close();
 		
-		if (fileName.equals("help")) {
+		if (fileName.equals("info")) {
 			displayInputInstructions();
 		} else {
 			Graph g_in = readInput(fileName);
@@ -58,8 +59,17 @@ public class NegativeWeightSSSP {
 		}
 	}
 	
-	public static void displayInputInstructions() {
-		System.out.println("instructions");
+	public static void displayInputInstructions() throws IOException {
+		BufferedReader f = new BufferedReader(new FileReader("README.md"));
+		
+		System.out.println();
+		
+		String line = f.readLine();
+		while (line != null) {
+			System.out.println(line);
+			line = f.readLine();
+		}
+		f.close();
 	}
 	
 	@SuppressWarnings("all")
@@ -575,11 +585,6 @@ public class NegativeWeightSSSP {
 	 * 	algorithm does terminate, it always produces a correct output.
 	 */
 	public static int[] ScaleDown(Graph g, int delta, int B) throws Exception {
-		if (delta == 1 && B == 1024) {
-			System.out.println("here");
-		}
-		System.out.println(delta + " " + B);
-		
 		// if phi(x) == null, assume that phi(x) = 0
 		int[] phi_2 = new int[g.v_max];
 		
