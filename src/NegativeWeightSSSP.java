@@ -5,66 +5,72 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 import java.util.Random;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.Stack;
 
 public class NegativeWeightSSSP {
 	
-	public static double startTime; // in ms
-	public static final boolean CHECKS = true;
-	public static final boolean WITH_LDD = false;
-	public static final int WEIGHT_METHOD = 1;
-	public static final int MAX_VERTEX = 2000;
-	public static final int RANDOM_SEED = 100;
-	public static final boolean DISPLAY_TREE = false;
-	public static final boolean INPUT_HAS_A = false;
-	public static final boolean PRINT_LDD_SIZE = false;
-	public static final boolean MAKE_CONNECTED = true;
+	public static double startTime;
+	public static final int NUM_FLAGS = 10;
+	
+	// flags
+	public static int SRC;
+	public static boolean CHECKS;
+	public static boolean WITH_LDD;
+	public static double WEIGHT_METHOD;
+	public static int MAX_VERTEX;
+	public static boolean YES_RANDOM_SEED;
+	public static int RANDOM_SEED;
+	public static boolean DISPLAY_TREE;
+	public static boolean PRINT_LDD_SIZE;
+	public static boolean MAKE_CONNECTED;
 
 	public static void main(String[] args) throws Exception {		
-		String fileName = "graph_1.txt";
-		int src = 0;
+		System.out.println("Enter the input file name. Entering \"help\" will display instructions on the format of the input file.");
+		Scanner scan = new Scanner(System.in);
+		String fileName = scan.nextLine();
+		scan.close();
 		
-		Graph g_in = readInput(fileName);
-		Graph g = getConnectedSubgraph(g_in, src);
+		if (fileName.equals("help")) {
+			displayInputInstructions();
+		} else {
+			Graph g_in = readInput(fileName);
+			Graph g = getConnectedSubgraph(g_in);
 
-		while (g.hasNoNegativeEdgeWeights() || g.hasNegCycle()) {
-			g_in = readInput(fileName);
-			g = getConnectedSubgraph(g_in, src);
-		}
-		
-		System.out.println("Number of vertices: " + g.n);
-		
-		runBellmanFord(g);
-		
-		int[] tree = bitScaling(g, src);
-		
-		if (DISPLAY_TREE) {
-			System.out.println();
-			for (int v : g.vertices) {
-				System.out.println("Parent of vertex " + v + ": " + tree[v]);
+			while (g.hasNoNegativeEdgeWeights() || g.hasNegCycle()) {
+				g_in = readInput(fileName);
+				g = getConnectedSubgraph(g_in);
+			}
+			
+			System.out.println("Number of vertices: " + g.n);
+			
+			runBellmanFord(g);
+			
+			int[] tree = bitScaling(g);
+			
+			if (DISPLAY_TREE) {
+				System.out.println();
+				for (int v : g.vertices) {
+					System.out.println("Parent of vertex " + v + ": " + tree[v]);
+				}
 			}
 		}
 	}
 	
+	public static void displayInputInstructions() {
+		System.out.println("instructions");
+	}
+	
 	@SuppressWarnings("all")
 	public static Graph readInput(String fileName) throws Exception {
+		BufferedReader f = new BufferedReader(new FileReader(fileName));
+		setFlags(f);
+		
 		int[] sizeWeight = getMaxSizeWeight(fileName);
 		int g_size = sizeWeight[0];
 		int maxWeight = sizeWeight[1];
-		
-		int[] phi = null;
-		if (WEIGHT_METHOD == 1) {
-			Random random = new Random();
-			random.setSeed(RANDOM_SEED);
-			phi = new int[g_size];
-			
-			for (int v = 0; v < g_size; v++) {
-				phi[v] = (int) (random.nextDouble() * maxWeight * 10);
-			}
-		}
-		
-		BufferedReader f = new BufferedReader(new FileReader(fileName));
+		int[] phi = createRandomPriceFunction(g_size, maxWeight);;
 		
 		Graph g = new Graph(g_size, false);
 		ArrayList<Integer>[] edges = new ArrayList[g_size];
@@ -123,23 +129,88 @@ public class NegativeWeightSSSP {
 		return g;
 	}
 	
+	public static int[] createRandomPriceFunction(int g_size, int maxWeight) {
+		if (WEIGHT_METHOD == 1) {
+			Random random = new Random();
+			if (YES_RANDOM_SEED) {
+				random.setSeed(RANDOM_SEED);
+			}
+			
+			int[] phi = new int[g_size];
+			
+			for (int v = 0; v < g_size; v++) {
+				phi[v] = (int) (random.nextDouble() * maxWeight * 10);
+			}
+			return phi;
+		}
+		return null;
+	}
+
+	public static void setFlags(BufferedReader f) throws NumberFormatException, IOException {
+		SRC = Integer.parseInt(f.readLine());
+
+		if (Integer.parseInt(f.readLine()) == 1) {
+			CHECKS = true;
+		} else {
+			CHECKS = false;
+		}
+		
+		if (Integer.parseInt(f.readLine()) == 1) {
+			WITH_LDD = true;
+		} else {
+			WITH_LDD = false;
+		}
+		
+		WEIGHT_METHOD = Double.parseDouble(f.readLine());
+		MAX_VERTEX = Integer.parseInt(f.readLine());
+		
+		if (Integer.parseInt(f.readLine()) == 1) {
+			YES_RANDOM_SEED = true;
+		} else {
+			YES_RANDOM_SEED = false;
+		}
+		
+		RANDOM_SEED = Integer.parseInt(f.readLine());
+		
+		if (Integer.parseInt(f.readLine()) == 1) {
+			DISPLAY_TREE = true;
+		} else {
+			DISPLAY_TREE = false;
+		}
+		
+		if (Integer.parseInt(f.readLine()) == 1) {
+			PRINT_LDD_SIZE = true;
+		} else {
+			PRINT_LDD_SIZE = false;
+		}
+		
+		if (Integer.parseInt(f.readLine()) == 1) {
+			MAKE_CONNECTED = true;
+		} else {
+			MAKE_CONNECTED = false;
+		}
+	}
+	
 	// returns an int[3], where int[0] = u, int[1] = v, int[2] = weight
 	public static int[] getEdgeFromLine(String line) {
 		int u;
 		int v;
 		int weight;
+		String[] arr = line.split(",");
 		
-		if (INPUT_HAS_A) {
-			String[] arr = line.split(" ");
-			u = Integer.parseInt(arr[1]);
-			v = Integer.parseInt(arr[2]);
-			weight = Integer.parseInt(arr[3]);
-		} else {
-			String[] arr = line.split(",");
-			u = Integer.parseInt(arr[0]);
-			v = Integer.parseInt(arr[1]);
-			weight = (int) Double.parseDouble(arr[2]);
+		if (arr.length < 3) {
+			arr = line.split(" ");
 		}
+		
+		// handles data from DIMACS Shortest Path Challenge
+		int startIndex = 0;
+		if (arr[0].equals("a")) {
+			startIndex++;
+		}
+		
+		u = Integer.parseInt(arr[startIndex]);
+		v = Integer.parseInt(arr[startIndex + 1]);
+		weight = (int) Double.parseDouble(arr[startIndex + 2]);
 		
 		int[] out = {u, v, weight};
 		return out;
@@ -151,21 +222,24 @@ public class NegativeWeightSSSP {
 		if (WEIGHT_METHOD == 1) {
 			return weight + phi[u] - phi[v];
 		} else if (WEIGHT_METHOD == 2) {
-			if (Math.random() < .03) {
-				return -1;
-			}
-		} else if (WEIGHT_METHOD == 3) {
-			if (Math.random() < .03) {
+			return weight;
+		} else {
+			if (Math.random() < WEIGHT_METHOD) {
 				return -1 * weight;
+			} else {
+				return weight;
 			}
 		}
-		
-		return weight;
 	}
 	
 	// returns an int[2], where after reading fileName, int[0] = largest vertex number, int[1] = largest weight
 	public static int[] getMaxSizeWeight(String fileName) throws IOException {
 		BufferedReader f = new BufferedReader(new FileReader(fileName));
+		
+		for (int i = 0; i < NUM_FLAGS; i++) {
+			f.readLine();
+		}
+		
 		String line = f.readLine();
 		int g_size = -1;
 		int maxWeight = 0;
@@ -194,9 +268,9 @@ public class NegativeWeightSSSP {
 		return largestSizeWeight;
 	}
 	
-	public static Graph getConnectedSubgraph(Graph g, int src) throws Exception {
+	public static Graph getConnectedSubgraph(Graph g) throws Exception {
 		boolean[] reachable = new boolean[g.v_max];
-		findReachable(g, src, reachable);
+		findReachable(g, SRC, reachable);
 		
 		Graph subGraph = new Graph(g.v_max, false);
 		for (int v = 0; v < g.v_max; v++) {
@@ -242,7 +316,7 @@ public class NegativeWeightSSSP {
 	}
 	
 	// Runs the bit scaling algorithm of Goldberg and Rao to return a shortest path tree for g_in
-	public static int[] bitScaling(Graph g, int s) throws Exception {
+	public static int[] bitScaling(Graph g) throws Exception {
 		startTime = System.currentTimeMillis();
 
 		int minWeight = Integer.MAX_VALUE;
@@ -257,7 +331,7 @@ public class NegativeWeightSSSP {
 		
 		if (minWeight >= 0) {
 			System.out.println("Graph has no negative edge weights.");
-			return getShortestPathTree(g, s);
+			return getShortestPathTree(g, SRC);
 		}
 		
 		int precision = (int) Math.pow(2, (int) logBase2(-1 * minWeight));
@@ -331,7 +405,7 @@ public class NegativeWeightSSSP {
 			}
 		}
 		
-		int[] tree = getShortestPathTree(g, s);
+		int[] tree = getShortestPathTree(g, SRC);
 		
 		double runTime = System.currentTimeMillis() - startTime;
 		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
@@ -591,7 +665,9 @@ public class NegativeWeightSSSP {
 				SCCSubgraph.initNullAdjListElts();
 				
 				Random random = new Random();
-				random.setSeed(RANDOM_SEED);
+				if (YES_RANDOM_SEED) {
+					random.setSeed(RANDOM_SEED);
+				}
 				
 				if (numEdgesRemoved > 0) {
 					// after removing edges, we need to recalculate the SCCs
@@ -768,7 +844,7 @@ public class NegativeWeightSSSP {
 
 	public static int[] addPhi(int[] phi_1, int[] phi_2) throws Exception {
 		int len = phi_1.length;
-		if (len != phi_2. length) {
+		if (len != phi_2.length) {
 			throw new Exception("Trying to add phi's of different lengths.");
 		}
 		
