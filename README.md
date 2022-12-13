@@ -1,6 +1,8 @@
 # Negative Weight SSSP
 Code implements the near-linear time algorithm of Aaron Bernstein, Danupon Nanongkai, Christian Wulff-Nilsen that computes the shortest paths from a single source vertex to all other vertices in a graph with integral (potentially negative) edge weights. Link to paper: https://doi.org/10.48550/arXiv.2203.03456
 
+To run the code, enter the directory containing the executable negativeWeightSSSP.jar, and run the command "java -jar negativeWeightSSSP.jar" in a Terminal or Command Prompt window.
+
 ### Input file format
 The first 10 lines of the input file are parameters for the algorithm. <br/>
 <br/>
