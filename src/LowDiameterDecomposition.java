@@ -113,8 +113,6 @@ public class LowDiameterDecomposition {
 	// guaranteed to be independent.
 	// Each int[] in the output ArrayList has size two and represents an edge (int[0], int[1])
 	public static ArrayList<int[]> LDD(Graph g, int d) throws Exception {
-		NegativeWeightSSSP.CALLS_TO_LDD++;
-		
 		if (NegativeWeightSSSP.PRINT_LDD_SIZE) {
 			System.out.println("Size: " + g.n);
 		}

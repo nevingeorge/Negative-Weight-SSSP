@@ -1,6 +1,7 @@
 import java.util.*;
 
 public class Graph {
+	
 	/*
 	 *  Upper bound on the greatest index of a vertex. 
 	 *  Important for when creating subgraphs, since only a subset 

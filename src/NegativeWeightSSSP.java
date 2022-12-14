@@ -5,7 +5,6 @@ public class NegativeWeightSSSP {
 	
 	public static double startTime;
 	public static int LDD_BASE_CASE = 10;
-	public static int CALLS_TO_LDD = 0;
 	public static double CALCULATE_SCC_PROB = 1;
 	public static final int NUM_FLAGS = 10;
 	
@@ -50,8 +49,7 @@ public class NegativeWeightSSSP {
 			int[] tree = bitScaling(g);
 			
 			if (DISPLAY_TREE) {
-				System.out.println();
-				System.out.println("Shortest path tree");
+				System.out.println("\nShortest path tree");
 				System.out.println("------------------");
 				for (int v : g.vertices) {
 					System.out.println("Parent of vertex " + v + ": " + tree[v]);
