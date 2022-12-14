@@ -1,10 +1,4 @@
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.PriorityQueue;
-import java.util.Set;
-
+import java.util.*;
 import org.apache.commons.rng.sampling.distribution.GeometricSampler;
 import org.apache.commons.rng.simple.RandomSource;
 
@@ -14,6 +8,104 @@ public class LowDiameterDecomposition {
 	public static void main(String[] args) throws Exception {
 	}
 	
+	// calculates the SCCs of g and runs LDD only on SCCs that have large weak diameter
+	public static ArrayList<int[]> preLDD(Graph g, int d) throws Exception {
+		Random random = new Random();
+		if (NegativeWeightSSSP.YES_RANDOM_SEED) {
+			random.setSeed(NegativeWeightSSSP.RANDOM_SEED);
+		}
+		
+		// only calculate SCCs CALCULATE_SCC_PROB percent of the time
+		if (random.nextDouble() < NegativeWeightSSSP.CALCULATE_SCC_PROB) {
+			return LDD(g, d);
+		}
+		
+		ArrayList<ArrayList<Integer>> SCCs = g.SCC();
+		ArrayList<int[]> E_sep = new ArrayList<int[]>();
+		
+		if (SCCs.size() == 1) {
+			return LDD(g, d);
+		}
+		
+		for (ArrayList<Integer> SCC : SCCs) {
+			if (SCC.size() > 1) {
+				Graph SCCSubgraph = new Graph(g.v_max, false);
+				SCCSubgraph.addVertices(SCC);
+				
+				HashSet<Integer> SCCVerts = new HashSet<>(SCC);
+				
+				for (int v : SCC) {
+					ArrayList<Integer> outVertices = new ArrayList<Integer>();
+					ArrayList<Integer> weights = new ArrayList<Integer>();
+					
+					for (int i = 0 ; i < g.adjacencyList[v].length; i++) {
+						if (SCCVerts.contains(g.adjacencyList[v][i])) {
+							outVertices.add(g.adjacencyList[v][i]);
+							weights.add(g.weights[v][i]);
+						}
+					}
+					
+					SCCSubgraph.addEdges(v, listToArr(outVertices), listToArr(weights));
+				}
+				SCCSubgraph.initNullAdjListElts();
+				
+				int src = SCC.get((int) (random.nextDouble() * SCC.size()));				
+				if (hasLargeDiameter(SCCSubgraph, src, d)) {
+					E_sep.addAll(LDD(SCCSubgraph, d));
+				}
+			}
+		}
+		
+		return E_sep;
+	}
+	
+	public static boolean hasLargeDiameter(Graph g, int s, int diameter) {		
+		boolean[] settled = new boolean[g.v_max];
+		int numSettled = 0;
+	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
+		int[] dist = new int[g.v_max];
+		for (int i = 0; i < g.v_max; i++) {
+            dist[i] = Integer.MAX_VALUE;
+        }
+        pq.add(new Node(s, 0));
+        dist[s] = 0;
+ 
+        while (numSettled != g.n) {
+            if (pq.isEmpty()) {
+                return false;
+            }
+
+            int u = pq.remove().node;
+
+            if (settled[u]) {
+                continue;
+            }
+            
+            if (dist[u] > diameter) {
+            	return true;
+            }
+
+            settled[u] = true;
+            numSettled++;
+            
+            for (int i = 0; i < g.adjacencyList[u].length; i++) {
+            	int v = g.adjacencyList[u][i];
+            	
+                if (!settled[v]) {
+                    int newDistance = dist[u] + g.weights[u][i];
+
+                    if (newDistance < dist[v]) {
+                        dist[v] = newDistance;
+                    }
+                    
+                    pq.add(new Node(v, dist[v]));
+                }
+            }
+        }
+        
+        return false;
+	}
+	
 	// OUTPUT: A set of edges e_sep with the following guarantees:
 	// – each SCC of G\e_sep has weak diameter at most D; that is, if u,v are in the same SCC,
 	// then dist_G(u, v) ≤ D and dist_G(v, u) ≤ D.
@@ -21,11 +113,13 @@ public class LowDiameterDecomposition {
 	// guaranteed to be independent.
 	// Each int[] in the output ArrayList has size two and represents an edge (int[0], int[1])
 	public static ArrayList<int[]> LDD(Graph g, int d) throws Exception {
+		NegativeWeightSSSP.CALLS_TO_LDD++;
+		
 		if (NegativeWeightSSSP.PRINT_LDD_SIZE) {
-			System.out.println("Size: " + g.n + " " + d);
+			System.out.println("Size: " + g.n);
 		}
 
-		if (g.n <= 1) {
+		if (g.n <= Math.max(1, NegativeWeightSSSP.LDD_BASE_CASE)) {
 			return new ArrayList<int[]>();
 		}
 		
@@ -61,7 +155,7 @@ public class LowDiameterDecomposition {
 			Graph subGraph = getSubgraph(g, ball, false);
 			Graph minusSubGraph = getSubgraph(g, ball, true);
 			
-			return edgeUnion(layer(g, ball), LDD(subGraph, d), LDD(minusSubGraph, d));
+			return edgeUnion(layer(g, ball), preLDD(subGraph, d), preLDD(minusSubGraph, d));
 		}
 		
 		if (condAndi_max[0] == 3) {
@@ -69,7 +163,7 @@ public class LowDiameterDecomposition {
 			Graph subGraph = getSubgraph(g_rev, ball, false);	
 			Graph minusSubGraph = getSubgraph(g_rev, ball, true);
 			
-			return revEdges(edgeUnion(layer(g_rev, ball), LDD(subGraph, d), LDD(minusSubGraph, d)));
+			return revEdges(edgeUnion(layer(g_rev, ball), preLDD(subGraph, d), preLDD(minusSubGraph, d)));
 		}
 		
 		throw new Exception("LowDiamDecomposition failed.");
@@ -90,11 +184,7 @@ public class LowDiameterDecomposition {
 	
 	
 	public static double calculateGeoProb(int n, int r) {
-		double c = Math.pow(Math.log(n), -1);
-		double prob = 2 * c * Math.log(n) / ((double) r * Math.log(10));
-		if (prob > 1) {
-			System.out.println("Geometric probability was more than 1 (set to 1).");
-		}
+		double prob = Math.pow(Math.log(n), 2) / r;
 		return Math.min(1, prob);
 	}
 	
@@ -151,13 +241,13 @@ public class LowDiameterDecomposition {
 				Graph gVMinusM = getSubgraph(g, m, true);
 				ArrayList<Integer> ball = volume(gVMinusM, v, i_rnd);
 				Graph GVMinusMSubGraph = getSubgraph(gVMinusM, ball, false);
-				e_sep = edgeUnion(e_sep, layer(gVMinusM, ball), LDD(GVMinusMSubGraph, d));
+				e_sep = edgeUnion(e_sep, layer(gVMinusM, ball), preLDD(GVMinusMSubGraph, d));
 				m = vertexUnion(m, ball);
 			} else if (dist[v] > 2 * d) {
 				Graph gVMinusM_rev = getSubgraph(g_rev, m, true);
 				ArrayList<Integer> ball_rev = volume(gVMinusM_rev, v, i_rnd);
 				Graph GVMinusMSubGraph_rev = getSubgraph(gVMinusM_rev, ball_rev, false);
-				e_sep = edgeUnion(e_sep, revEdges(layer(gVMinusM_rev, ball_rev)), revEdges(LDD(GVMinusMSubGraph_rev, d)));
+				e_sep = edgeUnion(e_sep, revEdges(layer(gVMinusM_rev, ball_rev)), revEdges(preLDD(GVMinusMSubGraph_rev, d)));
 				m = vertexUnion(m, ball_rev);
 			} else {
 				throw new Exception("RandomTrim failed.");

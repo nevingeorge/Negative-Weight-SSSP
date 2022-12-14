@@ -1,0 +1,50 @@
+// useful code for testing runtimes
+		
+//		PrintWriter out = new PrintWriter(new BufferedWriter(new FileWriter("runtimes.txt")));
+//		
+//		for (int n = 1000; n <= 10000; n += 500) {
+//			for (int i = 1; i <= 10; i++) {
+//				String fileName = "graph_" + n + "_" + i + ".txt";
+//				
+//				Graph g_in = readInput(fileName);
+//				Graph g = getConnectedSubgraph(g_in);
+//	
+//				while (g.hasNoNegativeEdgeWeights() || g.hasNegCycle()) {
+//					g_in = readInput(fileName);
+//					g = getConnectedSubgraph(g_in);
+//				}
+//				
+//				Graph g_copy = new Graph(g.v_max, false);
+//				g_copy.addVertices(g.vertices);
+//				
+//				for (int u = 0; u < g.v_max; u++) {
+//					int[] list = new int[g.adjacencyList[u].length];
+//					int[] weightArr = new int[g.adjacencyList[u].length];
+//					for (int j = 0; j < g.adjacencyList[u].length; j++) {
+//						list[j] = g.adjacencyList[u][j];
+//						weightArr[j] = g.weights[u][j];
+//					}
+//					g_copy.adjacencyList[u] = list;
+//					g_copy.weights[u] = weightArr;
+//				}
+//				
+//				System.out.println(n + " " + i);
+//				
+//				out.print((g.n - 1) + ",");
+//				
+//				runBellmanFord(g);
+//				out.print(runTimeBF + ",");
+//				
+//				WITH_LDD = true;
+//				
+//				bitScaling(g);
+//				out.print(runTimeWithLDD + ",");
+//				
+//				WITH_LDD = false;
+//				
+//				bitScaling(g_copy);
+//				out.println(runTimeNoLDD);
+//			}
+//		}
+//		
+//		out.close();

@@ -1,18 +1,17 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.PriorityQueue;
-import java.util.Random;
-import java.util.Scanner;
-import java.util.Set;
-import java.util.Stack;
+import java.io.*;
+import java.util.*;
 
 public class NegativeWeightSSSP {
 	
 	public static double startTime;
+	public static int LDD_BASE_CASE = 10;
+	public static int CALLS_TO_LDD = 0;
+	public static double CALCULATE_SCC_PROB = 1;
 	public static final int NUM_FLAGS = 10;
+	
+//	public static double runTimeBF = 0;
+//	public static double runTimeWithLDD = 0;
+//	public static double runTimeNoLDD = 0;
 	
 	// flags
 	public static int SRC;
@@ -61,7 +60,6 @@ public class NegativeWeightSSSP {
 	
 	public static void displayInputInstructions() throws IOException {
 		BufferedReader f = new BufferedReader(new FileReader("README.md"));
-		
 		System.out.println();
 		
 		String line = f.readLine();
@@ -319,15 +317,18 @@ public class NegativeWeightSSSP {
 	
 	public static void runBellmanFord(Graph g) {
 		double time = System.currentTimeMillis();
-		g.BellmanFord(0);
+		g.BellmanFord(SRC);
 		double runTime = System.currentTimeMillis() - time;
 		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
 		System.out.println("Time to complete Bellman-Ford: " + roundedRunTime + " ms.");
+		// runTimeBF = roundedRunTime;
 	}
 	
 	// Runs the bit scaling algorithm of Goldberg and Rao to return a shortest path tree for g_in
 	public static int[] bitScaling(Graph g) throws Exception {
 		startTime = System.currentTimeMillis();
+		LDD_BASE_CASE = (int) (g.n / (LDD_BASE_CASE * Math.log(g.n)));
+		CALCULATE_SCC_PROB = g.n / 10000.0;
 
 		int minWeight = Integer.MAX_VALUE;
 		for (int u : g.vertices) {
@@ -420,6 +421,12 @@ public class NegativeWeightSSSP {
 		double runTime = System.currentTimeMillis() - startTime;
 		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
 		System.out.println("The program terminated in " + roundedRunTime + " ms.");
+		
+//		if (WITH_LDD) {
+//			runTimeWithLDD = roundedRunTime;
+//		} else {
+//			runTimeNoLDD = roundedRunTime;
+//		}
 		
 		return tree;
 	}
@@ -595,7 +602,7 @@ public class NegativeWeightSSSP {
 			// phase 0
 			ArrayList<int[]> E_sep;
 			if (WITH_LDD) {
-				E_sep = SCCLDD(g_B_nneg, (int) (4 * d * B));
+				E_sep = SPmainLDD(g_B_nneg, (int) (4 * d * B));
 			} else {
 				E_sep = new ArrayList<int[]>();
 			}
@@ -632,140 +639,39 @@ public class NegativeWeightSSSP {
 		return phi_3;
 	}
 	
-	public static ArrayList<int[]> SCCLDD(Graph g, int diameter) throws Exception {
-		// We will only run LDD on the SCCs with large diameter.
-		
-		ArrayList<ArrayList<Integer>> SCCs = g.SCC();
+	public static ArrayList<int[]> SPmainLDD(Graph g, int diameter) throws Exception {
 		ArrayList<int[]> E_sep = new ArrayList<int[]>();
 		
-		for (ArrayList<Integer> SCC : SCCs) {
-			if (SCC.size() > 1) {
-				Graph SCCSubgraph = new Graph(g.v_max, false);
-				SCCSubgraph.addVertices(SCC);
-				
-				HashSet<Integer> SCCVerts = new HashSet<>(SCC);
-				int numEdgesRemoved = 0;
-				
-				for (int v : SCC) {
-					ArrayList<Integer> outVertices = new ArrayList<Integer>();
-					ArrayList<Integer> weights = new ArrayList<Integer>();
-					
-					for (int i = 0 ; i < g.adjacencyList[v].length; i++) {
-						if (SCCVerts.contains(g.adjacencyList[v][i])) {
-							if (g.weights[v][i] > diameter / 2) {
-								// edge is too big, likely would be added to E_sep
-								int[] edge = {v, g.adjacencyList[v][i]};
-								E_sep.add(edge);
-								numEdgesRemoved++;
-							} else {
-								outVertices.add(g.adjacencyList[v][i]);
-								weights.add(g.weights[v][i]);
-							}
-						}
-					}
-					
-					SCCSubgraph.addEdges(v, LowDiameterDecomposition.listToArr(outVertices), 
-							LowDiameterDecomposition.listToArr(weights));
-				}
-				SCCSubgraph.initNullAdjListElts();
-				
-				Random random = new Random();
-				if (YES_RANDOM_SEED) {
-					random.setSeed(RANDOM_SEED);
-				}
-				
-				if (numEdgesRemoved > 0) {
-					// after removing edges, we need to recalculate the SCCs
-					ArrayList<ArrayList<Integer>> SCCAfterRemoved = SCCSubgraph.SCC();
-					
-					for (ArrayList<Integer> SCC_r : SCCAfterRemoved) {
-						if (SCC_r.size() > 1) {
-							Graph SCCSubgraph_r = new Graph(g.v_max, false);
-							SCCSubgraph_r.addVertices(SCC_r);
-							
-							HashSet<Integer> SCCVerts_r = new HashSet<>(SCC_r);
-
-							for (int v : SCC_r) {
-								ArrayList<Integer> outVertices_r = new ArrayList<Integer>();
-								ArrayList<Integer> weights_r = new ArrayList<Integer>();
-								
-								for (int i = 0 ; i < SCCSubgraph.adjacencyList[v].length; i++) {
-									if (SCCVerts_r.contains(SCCSubgraph.adjacencyList[v][i])) {
-										outVertices_r.add(SCCSubgraph.adjacencyList[v][i]);
-										weights_r.add(SCCSubgraph.weights[v][i]);
-									}
-								}
-								
-								SCCSubgraph_r.addEdges(v, LowDiameterDecomposition.listToArr(outVertices_r), 
-										LowDiameterDecomposition.listToArr(weights_r));
-							}
-							SCCSubgraph_r.initNullAdjListElts();
-							
-							int src = SCC_r.get((int) (random.nextDouble() * SCC_r.size()));				
-							if (hasLargeDiameter(SCCSubgraph_r, src, diameter)) {
-								E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph_r, diameter));
-							}
-						}
-					}
+		// first remove all the large edges in G
+		
+		Graph largeEdgesRemoved = new Graph(g.v_max, false);
+		largeEdgesRemoved.addVertices(g.vertices);
+		
+		for (int v : g.vertices) {
+			ArrayList<Integer> outVertices = new ArrayList<Integer>();
+			ArrayList<Integer> weights = new ArrayList<Integer>();
+			
+			for (int i = 0; i < g.adjacencyList[v].length; i++) {
+				if (g.weights[v][i] > diameter) {
+					// edge is too big, can add to E_sep
+					int[] edge = {v, g.adjacencyList[v][i]};
+					E_sep.add(edge);
 				} else {
-					int src = SCC.get((int) (random.nextDouble() * SCC.size()));				
-					if (hasLargeDiameter(SCCSubgraph, src, diameter)) {
-						E_sep.addAll(LowDiameterDecomposition.LDD(SCCSubgraph, diameter));
-					}
+					outVertices.add(g.adjacencyList[v][i]);
+					weights.add(g.weights[v][i]);
 				}
 			}
+			
+			largeEdgesRemoved.addEdges(v, LowDiameterDecomposition.listToArr(outVertices), 
+					LowDiameterDecomposition.listToArr(weights));
 		}
+		largeEdgesRemoved.initNullAdjListElts();
+		
+		E_sep.addAll(LowDiameterDecomposition.preLDD(largeEdgesRemoved, diameter));
 		
 		return E_sep;
+		
 	}
-	
-	public static boolean hasLargeDiameter(Graph g, int s, int diameter) {		
-		boolean[] settled = new boolean[g.v_max];
-		int numSettled = 0;
-	    PriorityQueue<Node> pq = new PriorityQueue<Node>(g.v_max, new Node());
-		int[] dist = new int[g.v_max];
-		for (int i = 0; i < g.v_max; i++) {
-            dist[i] = Integer.MAX_VALUE;
-        }
-        pq.add(new Node(s, 0));
-        dist[s] = 0;
- 
-        while (numSettled != g.n) {
-            if (pq.isEmpty()) {
-                return false;
-            }
-
-            int u = pq.remove().node;
-
-            if (settled[u]) {
-                continue;
-            }
-            
-            if (dist[u] > diameter) {
-            	return true;
-            }
-
-            settled[u] = true;
-            numSettled++;
-            
-            for (int i = 0; i < g.adjacencyList[u].length; i++) {
-            	int v = g.adjacencyList[u][i];
-            	
-                if (!settled[v]) {
-                    int newDistance = dist[u] + g.weights[u][i];
-
-                    if (newDistance < dist[v]) {
-                        dist[v] = newDistance;
-                    }
-                    
-                    pq.add(new Node(v, dist[v]));
-                }
-            }
-        }
-        
-        return false;
-	}
-	
 	
 	public static boolean hasNegativeEdges(Graph g, int[] phi, int B) {
 		for (int u : g.vertices) {
