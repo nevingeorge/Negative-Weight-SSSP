@@ -43,7 +43,7 @@ public class NegativeWeightSSSP {
 				g = getConnectedSubgraph(g_in);
 			}
 			
-			System.out.println("Number of vertices: " + g.n);
+			System.out.println("\nNumber of vertices: " + g.n);
 			
 			runBellmanFord(g);
 			
@@ -51,6 +51,8 @@ public class NegativeWeightSSSP {
 			
 			if (DISPLAY_TREE) {
 				System.out.println();
+				System.out.println("Shortest path tree");
+				System.out.println("------------------");
 				for (int v : g.vertices) {
 					System.out.println("Parent of vertex " + v + ": " + tree[v]);
 				}
@@ -320,7 +322,7 @@ public class NegativeWeightSSSP {
 		g.BellmanFord(SRC);
 		double runTime = System.currentTimeMillis() - time;
 		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
-		System.out.println("Time to complete Bellman-Ford: " + roundedRunTime + " ms.");
+		System.out.println("Bellman-Ford completed in " + roundedRunTime + " ms.");
 		// runTimeBF = roundedRunTime;
 	}
 	
@@ -420,7 +422,7 @@ public class NegativeWeightSSSP {
 		
 		double runTime = System.currentTimeMillis() - startTime;
 		double roundedRunTime = ((int) (runTime * 100)) / 100.0;
-		System.out.println("The program terminated in " + roundedRunTime + " ms.");
+		System.out.println("The program completed in " + roundedRunTime + " ms.");
 		
 //		if (WITH_LDD) {
 //			runTimeWithLDD = roundedRunTime;
